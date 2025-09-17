@@ -108,6 +108,19 @@ export class BusinessDayService {
   }
 
   /**
+   * Get the ACH release date for NACHA file generation
+   * ACH files should be released one business day prior to their effective date
+   * Returns the effective date that should be processed for release today
+   */
+  getACHReleaseEffectiveDate(releaseDate: Date = new Date()): Date {
+    // If release date is not a business day, move to next business day first
+    const actualReleaseDate = this.isBusinessDay(releaseDate) ? releaseDate : this.getNextBusinessDay(releaseDate);
+    
+    // Return the next business day which is the effective date for transactions to be released today
+    return this.addBusinessDays(actualReleaseDate, 1);
+  }
+
+  /**
    * Get default federal holidays for a given year
    */
   static getDefaultFederalHolidays(year: number): FederalHoliday[] {
