@@ -5,7 +5,7 @@ import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
 import { ACHTransaction, EncryptedTransaction, TransactionStatus, ApiResponse } from '@/types';
-import { authMiddleware, requireOperator } from '@/middleware/auth';
+import { authMiddleware, requireOperator, requireTransactionAccess, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
 
@@ -42,8 +42,8 @@ const transactionSchema = Joi.object({
   senderDetails: Joi.string().max(255).optional()
 });
 
-// Create a new ACH transaction
-router.post('/', requireOperator, async (req, res) => {
+// Create a new ACH transaction - Allow organizations to submit transactions
+router.post('/', requireTransactionAccess, async (req, res) => {
   try {
     const { error, value } = transactionSchema.validate(req.body);
     if (error) {
@@ -127,8 +127,8 @@ router.post('/', requireOperator, async (req, res) => {
   }
 });
 
-// Get all ACH transactions with pagination and filtering
-router.get('/', async (req, res) => {
+// Get all ACH transactions with pagination and filtering - Internal access only
+router.get('/', requireInternal, async (req, res) => {
   try {
     const querySchema = Joi.object({
       page: Joi.number().integer().min(1).default(1),
@@ -197,8 +197,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get a specific ACH transaction by ID
-router.get('/:id', async (req, res) => {
+// Get a specific ACH transaction by ID - Internal access only
+router.get('/:id', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -297,8 +297,8 @@ router.patch('/:id/status', requireOperator, async (req, res) => {
   }
 });
 
-// Get transaction statistics
-router.get('/stats/summary', async (req, res) => {
+// Get transaction statistics - Internal access only
+router.get('/stats/summary', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 

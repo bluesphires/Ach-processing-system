@@ -92,3 +92,18 @@ export const requireAdmin = requireRole(UserRole.ADMIN);
  * Admin or Operator middleware
  */
 export const requireOperator = requireRole(UserRole.ADMIN, UserRole.OPERATOR);
+
+/**
+ * Organization only middleware
+ */
+export const requireOrganization = requireRole(UserRole.ORGANIZATION);
+
+/**
+ * Organization or higher access middleware (for transaction submission)
+ */
+export const requireTransactionAccess = requireRole(UserRole.ADMIN, UserRole.OPERATOR, UserRole.ORGANIZATION);
+
+/**
+ * Internal access only (Admin/Operator) - excludes organizations
+ */
+export const requireInternal = requireRole(UserRole.ADMIN, UserRole.OPERATOR);

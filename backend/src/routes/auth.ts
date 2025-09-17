@@ -1,6 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import Joi from 'joi';
 import { DatabaseService } from '@/services/databaseService';
 import { User, UserRole, ApiResponse } from '@/types';
@@ -22,7 +22,7 @@ const loginSchema = Joi.object({
 });
 
 // Register new user
-router.post('/register', async (req, res): Promise<void> => {
+router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
@@ -61,8 +61,8 @@ router.post('/register', async (req, res): Promise<void> => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: newUser.id, email: newUser.email, role: newUser.role },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      process.env.JWT_SECRET! as string,
+      { expiresIn: (process.env.JWT_EXPIRE || '7d') } as SignOptions
     );
 
     const response: ApiResponse = {
@@ -92,7 +92,7 @@ router.post('/register', async (req, res): Promise<void> => {
 });
 
 // Login user
-router.post('/login', async (req, res): Promise<void> => {
+router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
     if (error) {
@@ -129,8 +129,8 @@ router.post('/login', async (req, res): Promise<void> => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      process.env.JWT_SECRET! as string,
+      { expiresIn: (process.env.JWT_EXPIRE || '7d') } as SignOptions
     );
 
     const response: ApiResponse = {
@@ -160,7 +160,7 @@ router.post('/login', async (req, res): Promise<void> => {
 });
 
 // Get current user profile
-router.get('/profile', authMiddleware, async (req, res): Promise<void> => {
+router.get('/profile', authMiddleware, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
     const userId = req.user!.userId;
@@ -199,7 +199,7 @@ router.get('/profile', authMiddleware, async (req, res): Promise<void> => {
 });
 
 // Update user profile
-router.put('/profile', authMiddleware, async (req, res): Promise<void> => {
+router.put('/profile', authMiddleware, async (req, res) => {
   try {
     const updateSchema = Joi.object({
       name: Joi.string().min(2).optional(),
@@ -249,7 +249,7 @@ router.put('/profile', authMiddleware, async (req, res): Promise<void> => {
 });
 
 // Change password
-router.put('/change-password', authMiddleware, async (req, res): Promise<void> => {
+router.put('/change-password', authMiddleware, async (req, res) => {
   try {
     const changePasswordSchema = Joi.object({
       currentPassword: Joi.string().required(),

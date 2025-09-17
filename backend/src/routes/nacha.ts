@@ -5,15 +5,15 @@ import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
 import { NACHAService } from '@/services/nachaService';
 import { ACHTransaction, TransactionStatus, ApiResponse } from '@/types';
-import { authMiddleware, requireOperator } from '@/middleware/auth';
+import { authMiddleware, requireOperator, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
 
 // Apply authentication to all routes
 router.use(authMiddleware);
 
-// Generate NACHA files for a specific effective date
-router.post('/generate', requireOperator, async (req, res) => {
+// Generate NACHA files for a specific effective date - Internal access only
+router.post('/generate', requireInternal, async (req, res) => {
   try {
     const generateSchema = Joi.object({
       effectiveDate: Joi.date().required(),
@@ -120,8 +120,8 @@ router.post('/generate', requireOperator, async (req, res) => {
   }
 });
 
-// Get all NACHA files
-router.get('/files', async (req, res) => {
+// Get all NACHA files - Internal access only
+router.get('/files', requireInternal, async (req, res) => {
   try {
     const querySchema = Joi.object({
       page: Joi.number().integer().min(1).default(1),
@@ -163,8 +163,8 @@ router.get('/files', async (req, res) => {
   }
 });
 
-// Get a specific NACHA file by ID
-router.get('/files/:id', async (req, res) => {
+// Get a specific NACHA file by ID - Internal access only
+router.get('/files/:id', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -195,8 +195,8 @@ router.get('/files/:id', async (req, res) => {
   }
 });
 
-// Download a NACHA file
-router.get('/files/:id/download', async (req, res) => {
+// Download a NACHA file - Internal access only
+router.get('/files/:id/download', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -226,8 +226,8 @@ router.get('/files/:id/download', async (req, res) => {
   }
 });
 
-// Validate a NACHA file
-router.post('/files/:id/validate', async (req, res) => {
+// Validate a NACHA file - Internal access only
+router.post('/files/:id/validate', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -266,8 +266,8 @@ router.post('/files/:id/validate', async (req, res) => {
   }
 });
 
-// Mark NACHA file as transmitted
-router.patch('/files/:id/transmitted', requireOperator, async (req, res) => {
+// Mark NACHA file as transmitted - Internal access only
+router.patch('/files/:id/transmitted', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -301,8 +301,8 @@ router.patch('/files/:id/transmitted', requireOperator, async (req, res) => {
   }
 });
 
-// Get NACHA generation statistics
-router.get('/stats/generation', async (req, res) => {
+// Get NACHA generation statistics - Internal access only
+router.get('/stats/generation', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 

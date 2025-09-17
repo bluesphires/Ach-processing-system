@@ -26,11 +26,11 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: true },
-  { name: 'Transactions', href: '/dashboard/transactions', icon: BanknotesIcon, current: false },
-  { name: 'NACHA Files', href: '/dashboard/nacha', icon: DocumentTextIcon, current: false },
-  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, current: false },
-  { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: [UserRole.ADMIN] },
-  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: [UserRole.ADMIN] },
+  { name: 'Transactions', href: '/dashboard/transactions', icon: BanknotesIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ORGANIZATION] },
+  { name: 'NACHA Files', href: '/dashboard/nacha', icon: DocumentTextIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
+  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
+  { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
+  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
