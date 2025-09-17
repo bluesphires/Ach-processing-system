@@ -1,5 +1,19 @@
 # ACH Processing System - Customer Integration Guide
 
+## Table of Contents
+
+1. [Welcome](#welcome)
+2. [What You'll Need](#what-youll-need)
+3. [Quick Integration Steps](#quick-integration-steps)
+4. [Common Use Cases](#common-use-cases)
+5. [Security Considerations](#security-considerations)
+6. [Testing and Validation](#testing-and-validation)
+7. [Troubleshooting](#troubleshooting)
+8. [Sample Code Libraries](#sample-code-libraries)
+9. [Next Steps](#next-steps)
+
+---
+
 ## Welcome
 
 Thank you for choosing our ACH Processing System. This guide will help you quickly integrate with our API to start processing ACH transactions securely and efficiently.

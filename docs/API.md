@@ -1,5 +1,43 @@
 # ACH Processing System API Documentation
 
+## Table of Contents
+
+1. [Overview](#overview)
+   - [Key Features](#key-features)
+   - [API Characteristics](#api-characteristics)
+2. [Getting Started](#getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Quick Start Guide](#quick-start-guide)
+3. [Authentication](#authentication)
+   - [Security Model](#security-model)
+   - [Obtaining Access Token](#obtaining-access-token)
+   - [Using the Token](#using-the-token)
+   - [Token Lifecycle](#token-lifecycle)
+4. [Response Format](#response-format)
+5. [Core API Endpoints](#core-api-endpoints)
+   - [Transaction Management](#transaction-management)
+   - [NACHA File Management](#nacha-file-management)
+6. [Error Handling](#error-handling)
+   - [HTTP Status Codes](#http-status-codes)
+   - [Error Response Format](#error-response-format)
+   - [Common Error Examples](#common-error-examples)
+7. [Rate Limiting](#rate-limiting)
+   - [Rate Limits by Endpoint Category](#rate-limits-by-endpoint-category)
+   - [Rate Limit Headers](#rate-limit-headers)
+   - [Best Practices for Rate Limiting](#best-practices-for-rate-limiting)
+8. [Best Practices](#best-practices)
+   - [Security Best Practices](#security-best-practices)
+   - [Performance Optimization](#performance-optimization)
+   - [Integration Patterns](#integration-patterns)
+   - [Workflow Examples](#workflow-examples)
+9. [Support and Resources](#support-and-resources)
+   - [API Versioning](#api-versioning)
+   - [Environment URLs](#environment-urls)
+   - [Technical Support](#technical-support)
+   - [Compliance Notes](#compliance-notes)
+
+---
+
 ## Overview
 
 The ACH Processing System API provides a comprehensive solution for managing Automated Clearing House (ACH) transactions. This RESTful API enables customers to submit, track, and manage ACH transactions while ensuring compliance with NACHA standards and banking regulations.
@@ -490,8 +528,79 @@ Mark a NACHA file as transmitted to your financial institution.
     "transmitted": true,
     "transmittedAt": "2023-01-01T00:00:00.000Z"
   },
-  "message": "File marked as transmitted"
+### Business Day Utilities
+
+ACH transactions must be processed on business days. These endpoints help you determine valid processing dates and calculate business days.
+
+#### Check Business Day
+
+**Endpoint**: `GET /api/holidays/business-day/check/{date}`
+
+Determine if a specific date is a business day (not a weekend or federal holiday).
+
+**Path Parameters**:
+- `date` (string): Date to check (YYYY-MM-DD format)
+
+**Success Response** (HTTP 200):
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2023-12-15",
+    "isBusinessDay": true,
+    "isHoliday": false,
+    "isWeekend": false,
+    "dayOfWeek": "Friday"
+  }
 }
+```
+
+#### Calculate Business Days
+
+**Endpoint**: `GET /api/holidays/business-day/calculate`
+
+Calculate the number of business days between two dates.
+
+**Query Parameters**:
+- `startDate` (string): Start date (YYYY-MM-DD)
+- `endDate` (string): End date (YYYY-MM-DD)
+
+**Success Response** (HTTP 200):
+```json
+{
+  "success": true,
+  "data": {
+    "startDate": "2023-12-01",
+    "endDate": "2023-12-15",
+    "businessDays": 10,
+    "totalDays": 14,
+    "weekends": 4,
+    "holidays": 0
+  }
+}
+```
+
+#### Get Next Business Day
+
+**Endpoint**: `GET /api/holidays/business-day/next/{date}`
+
+Find the next business day from a given date.
+
+**Path Parameters**:
+- `date` (string): Starting date (YYYY-MM-DD format)
+
+**Success Response** (HTTP 200):
+```json
+{
+  "success": true,
+  "data": {
+    "inputDate": "2023-12-15",
+    "nextBusinessDay": "2023-12-18",
+    "daysUntilNext": 3,
+    "reason": "Weekend followed by Monday"
+  }
+}
+```
 ```
 
 ## Error Handling
@@ -719,5 +828,21 @@ For technical assistance with API integration:
 - **NACHA Compliance**: All generated files conform to NACHA standards
 - **Data Retention**: Transaction data is retained according to your organization's policy
 - **Audit Requirements**: All API interactions are logged for compliance purposes
+
+## Additional Resources
+
+### Documentation Suite
+- **[Customer Integration Guide](./API_CUSTOMER_GUIDE.md)**: Step-by-step integration guide with code examples
+- **[Quick Reference](./API_QUICK_REFERENCE.md)**: Condensed API reference for quick lookup
+- **[Development Guide](./QUICKSTART.md)**: Setup guide for development environments
+
+### Example Integrations
+The Customer Integration Guide includes working code examples in:
+- JavaScript/Node.js
+- Python
+- Shell/cURL commands
+
+### Postman Collection
+Contact your system administrator for a Postman collection with pre-configured API requests for testing and development.
 
 This API documentation provides the foundation for secure, efficient integration with the ACH Processing System. For additional technical details or custom integration requirements, please consult with your system administrator.
