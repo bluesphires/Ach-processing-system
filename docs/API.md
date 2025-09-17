@@ -122,6 +122,107 @@ Change user password.
 }
 ```
 
+# API Documentation
+
+## Authentication
+
+All API endpoints except `/health` require authentication. Include the JWT token in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+## Base URL
+
+```
+https://your-domain.com/api
+```
+
+## Organization Endpoints
+
+### GET /api/organizations
+
+List all organizations (Admin only).
+
+**Query Parameters:**
+- `page` (number): Page number (default: 1)
+- `limit` (number): Items per page (default: 50, max: 100)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "organizationKey": "uuid",
+      "name": "Acme Corporation",
+      "description": "Sample organization",
+      "active": true,
+      "createdAt": "2023-01-01T00:00:00.000Z",
+      "updatedAt": "2023-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 5,
+    "totalPages": 1
+  }
+}
+```
+
+### POST /api/organizations
+
+Create a new organization (Admin only).
+
+**Request Body:**
+```json
+{
+  "name": "Acme Corporation",
+  "description": "Sample organization",
+  "active": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "organizationKey": "uuid",
+    "name": "Acme Corporation",
+    "description": "Sample organization",
+    "active": true,
+    "createdAt": "2023-01-01T00:00:00.000Z",
+    "updatedAt": "2023-01-01T00:00:00.000Z"
+  },
+  "message": "Organization created successfully"
+}
+```
+
+### GET /api/organizations/:id
+
+Get specific organization by ID.
+
+### GET /api/organizations/key/:organizationKey
+
+Get specific organization by organization key.
+
+### PUT /api/organizations/:id
+
+Update organization (Admin only).
+
+**Request Body:**
+```json
+{
+  "name": "Updated Organization Name",
+  "description": "Updated description",
+  "active": false
+}
+```
+
 ## Transaction Endpoints
 
 ### POST /api/transactions
@@ -131,6 +232,7 @@ Create new ACH transaction.
 **Request Body:**
 ```json
 {
+  "organizationKey": "uuid",
   "drRoutingNumber": "123456789",
   "drAccountNumber": "1234567890",
   "drId": "CUSTOMER001",
@@ -151,6 +253,8 @@ Create new ACH transaction.
   "success": true,
   "data": {
     "id": "uuid",
+    "organizationId": "uuid",
+    "traceNumber": "123456789012345",
     "drRoutingNumber": "123456789",
     "drAccountNumber": "****7890",
     "amount": 1500.00,
@@ -162,13 +266,21 @@ Create new ACH transaction.
 
 ### GET /api/transactions
 
-List transactions with pagination and filtering.
+List transactions with pagination and enhanced filtering.
 
 **Query Parameters:**
 - `page` (number): Page number (default: 1)
 - `limit` (number): Items per page (default: 50, max: 100)
 - `status` (string): Filter by status (pending, processed, failed, cancelled)
 - `effectiveDate` (string): Filter by effective date (YYYY-MM-DD)
+- `organizationKey` (string): Filter by organization key (UUID)
+- `amountMin` (number): Minimum amount filter
+- `amountMax` (number): Maximum amount filter
+- `traceNumber` (string): Filter by trace number
+- `drId` (string): Filter by debtor ID (partial match)
+- `crId` (string): Filter by creditor ID (partial match)
+- `dateFrom` (string): Filter by creation date from (YYYY-MM-DD)
+- `dateTo` (string): Filter by creation date to (YYYY-MM-DD)
 
 **Response:**
 ```json
@@ -177,6 +289,8 @@ List transactions with pagination and filtering.
   "data": [
     {
       "id": "uuid",
+      "organizationId": "uuid",
+      "traceNumber": "123456789012345",
       "drRoutingNumber": "123456789",
       "drAccountNumber": "****7890",
       "amount": 1500.00,
