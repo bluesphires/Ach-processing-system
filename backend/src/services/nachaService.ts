@@ -1,5 +1,5 @@
 import moment from 'moment';
-import { ACHTransaction, NACHAFile } from '@/types';
+import { ACHTransaction, NACHAFile, TransactionEntry } from '@/types';
 
 export interface NACHAConfig {
   immediateDestination: string;
@@ -44,6 +44,34 @@ export class NACHAService {
   }
 
   /**
+   * Generate a NACHA file from transaction entries (new method for separate debit/credit structure)
+   */
+  generateNACHAFileFromEntries(
+    entries: TransactionEntry[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR'
+  ): NACHAFile {
+    // Filter entries by type to ensure we only include the correct type
+    const filteredEntries = entries.filter(entry => entry.entryType === fileType);
+    
+    const filename = this.generateFilename(effectiveDate, fileType);
+    const content = this.generateFileContentFromEntries(filteredEntries, effectiveDate, fileType);
+    
+    const totalAmount = filteredEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+    return {
+      id: this.generateId(),
+      filename,
+      content,
+      effectiveDate,
+      transactionCount: filteredEntries.length,
+      totalAmount,
+      createdAt: new Date(),
+      transmitted: false
+    };
+  }
+
+  /**
    * Generate the complete NACHA file content
    */
   private generateFileContent(
@@ -69,6 +97,45 @@ export class NACHAService {
 
     // File Control Record (Record Type 9)
     lines.push(this.generateFileControl(transactions));
+
+    // Pad to multiple of 10 records with 9s
+    const recordCount = lines.length;
+    const paddingNeeded = 10 - (recordCount % 10);
+    if (paddingNeeded !== 10) {
+      for (let i = 0; i < paddingNeeded; i++) {
+        lines.push('9'.repeat(94));
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate the complete NACHA file content from transaction entries
+   */
+  private generateFileContentFromEntries(
+    entries: TransactionEntry[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR'
+  ): string {
+    const lines: string[] = [];
+
+    // File Header Record (Record Type 1)
+    lines.push(this.generateFileHeader(effectiveDate));
+
+    // Batch Header Record (Record Type 5)
+    lines.push(this.generateBatchHeader(effectiveDate, fileType));
+
+    // Entry Detail Records (Record Type 6)
+    entries.forEach(entry => {
+      lines.push(this.generateEntryDetailFromEntry(entry));
+    });
+
+    // Batch Control Record (Record Type 8)
+    lines.push(this.generateBatchControlFromEntries(entries, fileType));
+
+    // File Control Record (Record Type 9)
+    lines.push(this.generateFileControlFromEntries(entries));
 
     // Pad to multiple of 10 records with 9s
     const recordCount = lines.length;
@@ -158,6 +225,28 @@ export class NACHAService {
   }
 
   /**
+   * Generate Entry Detail Record from Transaction Entry (Record Type 6)
+   */
+  private generateEntryDetailFromEntry(entry: TransactionEntry): string {
+    const transactionCode = entry.entryType === 'DR' ? '27' : '22'; // 27 = Checking Debit, 22 = Checking Credit
+    const amount = Math.round(entry.amount * 100); // Convert to cents
+    
+    return [
+      '6',                                          // Record Type Code
+      transactionCode,                              // Transaction Code
+      entry.routingNumber.substring(0, 8),          // Receiving DFI Identification
+      entry.routingNumber.substring(8, 9),          // Check Digit
+      this.padLeft(entry.accountNumber, 17, ' '),   // DFI Account Number
+      this.padLeft(amount.toString(), 10, '0'),     // Amount
+      this.padLeft(entry.accountId, 15, ' '),       // Individual Identification Number
+      this.padRight(entry.accountName, 22, ' '),    // Individual Name
+      this.padRight('', 2, ' '),                    // Discretionary Data
+      '0',                                          // Addenda Record Indicator
+      this.padLeft((this.getTraceNumber()).toString(), 15, '0') // Trace Number
+    ].join('');
+  }
+
+  /**
    * Generate Batch Control Record (Record Type 8)
    */
   private generateBatchControl(transactions: ACHTransaction[], fileType: 'DR' | 'CR'): string {
@@ -170,6 +259,35 @@ export class NACHAService {
     const entryHash = transactions.reduce((sum, tx) => {
       const routingNumber = fileType === 'DR' ? tx.drRoutingNumber : tx.crRoutingNumber;
       return sum + parseInt(routingNumber.substring(0, 8));
+    }, 0);
+    
+    return [
+      '8',                                          // Record Type Code
+      serviceClassCode,                             // Service Class Code
+      this.padLeft(entryCount.toString(), 6, '0'),  // Entry/Addenda Count
+      this.padLeft((entryHash % 10000000000).toString(), 10, '0'), // Entry Hash
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Debit Entry Dollar Amount
+      this.padLeft('0', 12, '0'),                   // Total Credit Entry Dollar Amount
+      this.config.companyId,                        // Company Identification
+      this.padRight('', 19, ' '),                   // Message Authentication Code
+      this.padRight('', 6, ' '),                    // Reserved
+      this.config.originatingDFI.substring(0, 8),  // Originating DFI Identification
+      '0000001'                                     // Batch Number
+    ].join('');
+  }
+
+  /**
+   * Generate Batch Control Record from Transaction Entries (Record Type 8)
+   */
+  private generateBatchControlFromEntries(entries: TransactionEntry[], fileType: 'DR' | 'CR'): string {
+    const serviceClassCode = fileType === 'DR' ? '225' : '220';
+    const entryCount = entries.length;
+    const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalAmountCents = Math.round(totalAmount * 100);
+    
+    // Calculate entry hash (sum of first 8 digits of routing numbers)
+    const entryHash = entries.reduce((sum, entry) => {
+      return sum + parseInt(entry.routingNumber.substring(0, 8));
     }, 0);
     
     return [
@@ -202,6 +320,33 @@ export class NACHAService {
       const drHash = parseInt(tx.drRoutingNumber.substring(0, 8));
       const crHash = parseInt(tx.crRoutingNumber.substring(0, 8));
       return sum + drHash + crHash;
+    }, 0);
+    
+    return [
+      '9',                                          // Record Type Code
+      this.padLeft(batchCount.toString(), 6, '0'),  // Batch Count
+      this.padLeft(blockCount.toString(), 6, '0'),  // Block Count
+      this.padLeft(entryCount.toString(), 8, '0'),  // Entry/Addenda Count
+      this.padLeft((entryHash % 10000000000).toString(), 10, '0'), // Entry Hash
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Debit Entry Dollar Amount
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Credit Entry Dollar Amount
+      this.padRight('', 39, ' ')                    // Reserved
+    ].join('');
+  }
+
+  /**
+   * Generate File Control Record from Transaction Entries (Record Type 9)
+   */
+  private generateFileControlFromEntries(entries: TransactionEntry[]): string {
+    const batchCount = 1;
+    const blockCount = Math.ceil((5 + entries.length) / 10); // 5 = header + batch header + batch control + file control records
+    const entryCount = entries.length;
+    const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalAmountCents = Math.round(totalAmount * 100);
+    
+    // Calculate entry hash (for transaction entries, only use their routing numbers once)
+    const entryHash = entries.reduce((sum, entry) => {
+      return sum + parseInt(entry.routingNumber.substring(0, 8));
     }, 0);
     
     return [

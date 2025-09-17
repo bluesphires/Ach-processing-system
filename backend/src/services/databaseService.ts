@@ -1,7 +1,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
   ACHTransaction, 
-  EncryptedTransaction, 
+  EncryptedTransaction,
+  TransactionEntry,
+  EncryptedTransactionEntry,
+  TransactionGroup,
   NACHAFile, 
   FederalHoliday, 
   SystemConfig, 
@@ -97,6 +100,168 @@ export class DatabaseService {
 
     if (error) {
       throw new Error(`Failed to update transaction status: ${error.message}`);
+    }
+  }
+
+  // Transaction Entries (New separate debit/credit structure)
+  async createTransactionEntry(entry: EncryptedTransactionEntry): Promise<EncryptedTransactionEntry> {
+    const { data, error } = await this.supabase
+      .from('transaction_entries')
+      .insert([entry])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create transaction entry: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async createTransactionGroup(group: Omit<TransactionGroup, 'id' | 'createdAt' | 'updatedAt'>): Promise<TransactionGroup> {
+    const groupData = {
+      ...group,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const { data, error } = await this.supabase
+      .from('transaction_groups')
+      .insert([groupData])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create transaction group: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async getTransactionEntry(id: string): Promise<EncryptedTransactionEntry | null> {
+    const { data, error } = await this.supabase
+      .from('transaction_entries')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to get transaction entry: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async getTransactionEntries(
+    page: number = 1, 
+    limit: number = 50,
+    filters?: { status?: string; effectiveDate?: Date; entryType?: 'DR' | 'CR' }
+  ): Promise<PaginatedResponse<EncryptedTransactionEntry>> {
+    let query = this.supabase
+      .from('transaction_entries')
+      .select('*', { count: 'exact' });
+
+    // Apply filters
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.effectiveDate) {
+      query = query.eq('effectiveDate', filters.effectiveDate.toISOString());
+    }
+    if (filters?.entryType) {
+      query = query.eq('entryType', filters.entryType);
+    }
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Failed to get transaction entries: ${error.message}`);
+    }
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return {
+      success: true,
+      data: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages
+      }
+    };
+  }
+
+  async getTransactionGroup(id: string): Promise<TransactionGroup | null> {
+    const { data, error } = await this.supabase
+      .from('transaction_groups')
+      .select(`
+        *,
+        drEntry:transaction_entries!dr_entry_id(*),
+        crEntry:transaction_entries!cr_entry_id(*)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to get transaction group: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async getTransactionGroups(
+    page: number = 1, 
+    limit: number = 50
+  ): Promise<PaginatedResponse<TransactionGroup>> {
+    const offset = (page - 1) * limit;
+    
+    const { data, error, count } = await this.supabase
+      .from('transaction_groups')
+      .select(`
+        *,
+        drEntry:transaction_entries!dr_entry_id(*),
+        crEntry:transaction_entries!cr_entry_id(*)
+      `, { count: 'exact' })
+      .order('createdAt', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw new Error(`Failed to get transaction groups: ${error.message}`);
+    }
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return {
+      success: true,
+      data: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages
+      }
+    };
+  }
+
+  async updateTransactionEntryStatus(id: string, status: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('transaction_entries')
+      .update({ status, updatedAt: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to update transaction entry status: ${error.message}`);
     }
   }
 

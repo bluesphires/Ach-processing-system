@@ -4,6 +4,7 @@ import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
 import { NACHAService } from '@/services/nachaService';
+import { TransactionEntryService } from '@/services/transactionEntryService';
 import { ACHTransaction, TransactionStatus, ApiResponse } from '@/types';
 import { authMiddleware, requireOperator } from '@/middleware/auth';
 
@@ -115,6 +116,103 @@ router.post('/generate', requireOperator, async (req, res) => {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to generate NACHA file'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Generate NACHA files from transaction entries (new separate debit/credit structure)
+router.post('/generate-from-entries', requireOperator, async (req, res) => {
+  try {
+    const generateSchema = Joi.object({
+      effectiveDate: Joi.date().required(),
+      fileType: Joi.string().valid('DR', 'CR').required()
+    });
+
+    const { error, value } = generateSchema.validate(req.body);
+    if (error) {
+      const response: ApiResponse = {
+        success: false,
+        error: error.details[0].message
+      };
+      return res.status(400).json(response);
+    }
+
+    const databaseService: DatabaseService = req.app.locals.databaseService;
+    const encryptionService: EncryptionService = req.app.locals.encryptionService;
+    const businessDayService: BusinessDayService = req.app.locals.businessDayService;
+    const nachaService: NACHAService = req.app.locals.nachaService;
+
+    // Create transaction entry service
+    const transactionEntryService = new TransactionEntryService(
+      databaseService,
+      encryptionService,
+      businessDayService
+    );
+
+    const { effectiveDate, fileType } = value;
+
+    // Get transaction entries for the effective date and type
+    const targetEffectiveDate = new Date(effectiveDate);
+    const transactionEntries = await transactionEntryService.getTransactionEntriesForNACHA(
+      targetEffectiveDate,
+      fileType
+    );
+
+    if (transactionEntries.length === 0) {
+      const response: ApiResponse = {
+        success: false,
+        error: `No pending ${fileType} transaction entries found for effective date ${targetEffectiveDate.toISOString().split('T')[0]}`
+      };
+      return res.status(404).json(response);
+    }
+
+    // Generate NACHA file from transaction entries
+    const nachaFile = nachaService.generateNACHAFileFromEntries(
+      transactionEntries,
+      targetEffectiveDate,
+      fileType
+    );
+
+    // Save NACHA file to database
+    const savedNachaFile = await databaseService.createNACHAFile({
+      filename: nachaFile.filename,
+      content: nachaFile.content,
+      effectiveDate: nachaFile.effectiveDate,
+      transactionCount: nachaFile.transactionCount,
+      totalAmount: nachaFile.totalAmount,
+      transmitted: false
+    });
+
+    // Update transaction entry status to processed
+    await Promise.all(
+      transactionEntries.map(entry => 
+        transactionEntryService.updateTransactionEntryStatus(entry.id, TransactionStatus.PROCESSED)
+      )
+    );
+
+    // Increment NACHA service sequence number
+    nachaService.incrementSequenceNumber();
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: savedNachaFile.id,
+        filename: savedNachaFile.filename,
+        effectiveDate: savedNachaFile.effectiveDate,
+        transactionCount: savedNachaFile.transactionCount,
+        totalAmount: savedNachaFile.totalAmount,
+        createdAt: savedNachaFile.createdAt
+      },
+      message: `NACHA ${fileType} file generated successfully from transaction entries`
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Generate NACHA file from entries error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to generate NACHA file from transaction entries'
     };
     res.status(500).json(response);
   }
