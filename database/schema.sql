@@ -7,6 +7,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Enable Row Level Security
 ALTER ROLE authenticated SET row_security = on;
 
+-- Organizations table for multi-tenant support
+CREATE TABLE IF NOT EXISTS organizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_key UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Users table (extends Supabase auth.users)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -14,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'operator',
+    organization_id UUID REFERENCES organizations(id),
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -22,6 +34,8 @@ CREATE TABLE IF NOT EXISTS users (
 -- ACH Transactions table
 CREATE TABLE IF NOT EXISTS ach_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
+    trace_number VARCHAR(15) UNIQUE NOT NULL DEFAULT LPAD(FLOOR(random() * 999999999999999)::text, 15, '0'),
     -- Debit Information
     dr_routing_number VARCHAR(9) NOT NULL,
     dr_account_number_encrypted TEXT NOT NULL,
@@ -54,6 +68,7 @@ CREATE TABLE IF NOT EXISTS ach_transactions (
 -- NACHA Files table
 CREATE TABLE IF NOT EXISTS nacha_files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
     filename VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     effective_date DATE NOT NULL,
@@ -92,9 +107,16 @@ CREATE TABLE IF NOT EXISTS system_config (
 );
 
 -- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_organizations_key ON organizations(organization_key);
+CREATE INDEX IF NOT EXISTS idx_organizations_active ON organizations(active);
+CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ach_transactions_organization_id ON ach_transactions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ach_transactions_trace_number ON ach_transactions(trace_number);
 CREATE INDEX IF NOT EXISTS idx_ach_transactions_effective_date ON ach_transactions(effective_date);
 CREATE INDEX IF NOT EXISTS idx_ach_transactions_status ON ach_transactions(status);
 CREATE INDEX IF NOT EXISTS idx_ach_transactions_created_at ON ach_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_ach_transactions_amount ON ach_transactions(amount);
+CREATE INDEX IF NOT EXISTS idx_nacha_files_organization_id ON nacha_files(organization_id);
 CREATE INDEX IF NOT EXISTS idx_nacha_files_effective_date ON nacha_files(effective_date);
 CREATE INDEX IF NOT EXISTS idx_nacha_files_transmitted ON nacha_files(transmitted);
 CREATE INDEX IF NOT EXISTS idx_federal_holidays_date ON federal_holidays(date);
@@ -110,6 +132,10 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+CREATE TRIGGER update_organizations_updated_at 
+    BEFORE UPDATE ON organizations 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_users_updated_at 
     BEFORE UPDATE ON users 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -124,11 +150,39 @@ CREATE TRIGGER update_system_config_updated_at
 
 -- Row Level Security (RLS) Policies
 -- Enable RLS on all tables
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ach_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nacha_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE federal_holidays ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for organizations table
+CREATE POLICY "Users can view their own organization" ON organizations
+    FOR SELECT USING (
+        id IN (
+            SELECT organization_id FROM users 
+            WHERE id::text = auth.uid()::text
+        )
+    );
+
+CREATE POLICY "Admin can view all organizations" ON organizations
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admin can manage organizations" ON organizations
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND role = 'admin'
+        )
+    );
 
 -- RLS Policies for users table
 CREATE POLICY "Users can view their own profile" ON users
@@ -143,24 +197,49 @@ CREATE POLICY "Admin can view all users" ON users
         )
     );
 
--- RLS Policies for ach_transactions table
-CREATE POLICY "Authenticated users can view transactions" ON ach_transactions
-    FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Operators can insert transactions" ON ach_transactions
-    FOR INSERT WITH CHECK (
+CREATE POLICY "Admin can manage users" ON users
+    FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND role = 'admin'
+        )
+    );
+
+-- RLS Policies for ach_transactions table
+CREATE POLICY "Users can view transactions from their organization" ON ach_transactions
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND active = true
+        )
+    );
+
+CREATE POLICY "Admin can view all transactions" ON ach_transactions
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND role = 'admin'
+            AND active = true
+        )
+    );
+
+CREATE POLICY "Operators can insert transactions for their organization" ON ach_transactions
+    FOR INSERT WITH CHECK (
+        organization_id IN (
+            SELECT organization_id FROM users 
             WHERE id::text = auth.uid()::text 
             AND role IN ('admin', 'operator')
             AND active = true
         )
     );
 
-CREATE POLICY "Operators can update transactions" ON ach_transactions
+CREATE POLICY "Operators can update transactions for their organization" ON ach_transactions
     FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM users 
+        organization_id IN (
+            SELECT organization_id FROM users 
             WHERE id::text = auth.uid()::text 
             AND role IN ('admin', 'operator')
             AND active = true
@@ -168,13 +247,29 @@ CREATE POLICY "Operators can update transactions" ON ach_transactions
     );
 
 -- RLS Policies for nacha_files table
-CREATE POLICY "Authenticated users can view NACHA files" ON nacha_files
-    FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Users can view NACHA files from their organization" ON nacha_files
+    FOR SELECT USING (
+        organization_id IN (
+            SELECT organization_id FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND active = true
+        )
+    );
 
-CREATE POLICY "Operators can manage NACHA files" ON nacha_files
-    FOR ALL USING (
+CREATE POLICY "Admin can view all NACHA files" ON nacha_files
+    FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM users 
+            WHERE id::text = auth.uid()::text 
+            AND role = 'admin'
+            AND active = true
+        )
+    );
+
+CREATE POLICY "Operators can manage NACHA files for their organization" ON nacha_files
+    FOR ALL USING (
+        organization_id IN (
+            SELECT organization_id FROM users 
             WHERE id::text = auth.uid()::text 
             AND role IN ('admin', 'operator')
             AND active = true
@@ -206,7 +301,11 @@ CREATE POLICY "Admin can manage system config" ON system_config
         )
     );
 
--- Insert default system configuration
+-- Insert default organization and system configuration
+INSERT INTO organizations (name, description) VALUES 
+    ('Default Organization', 'Default organization for initial setup')
+ON CONFLICT (organization_key) DO NOTHING;
+
 INSERT INTO system_config (key, value, description) VALUES
     ('sftp_host', '', 'SFTP server hostname'),
     ('sftp_port', '22', 'SFTP server port'),
@@ -226,8 +325,16 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Create default admin user (password should be changed immediately)
 -- Password is 'admin123' hashed with bcrypt
-INSERT INTO users (email, password, name, role, active) VALUES 
-    ('admin@achprocessing.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3QJL6VJt9u', 'System Administrator', 'admin', true)
+INSERT INTO users (email, password, name, role, organization_id, active) 
+SELECT 
+    'admin@achprocessing.com', 
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3QJL6VJt9u', 
+    'System Administrator', 
+    'admin', 
+    o.id,
+    true
+FROM organizations o 
+WHERE o.name = 'Default Organization'
 ON CONFLICT (email) DO NOTHING;
 
 -- Grant permissions to authenticated role

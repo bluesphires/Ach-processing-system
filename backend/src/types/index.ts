@@ -1,5 +1,17 @@
+export interface Organization {
+  id: string;
+  organizationKey: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ACHTransaction {
   id: string;
+  organizationId: string;
+  traceNumber: string;
   // Debit Information
   drRoutingNumber: string;
   drAccountNumber: string;
@@ -35,6 +47,7 @@ export interface EncryptedTransaction extends Omit<ACHTransaction, 'drAccountNum
 
 export interface NACHAFile {
   id: string;
+  organizationId: string;
   filename: string;
   content: string;
   effectiveDate: Date;
@@ -67,6 +80,7 @@ export interface User {
   password: string;
   role: UserRole;
   name: string;
+  organizationId?: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -103,4 +117,17 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 export interface BusinessDayCalculatorOptions {
   holidays: Date[];
   excludeWeekends: boolean;
+}
+
+export interface TransactionFilters {
+  status?: string;
+  effectiveDate?: Date;
+  organizationId?: string;
+  amountMin?: number;
+  amountMax?: number;
+  traceNumber?: string;
+  drId?: string;
+  crId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
 }

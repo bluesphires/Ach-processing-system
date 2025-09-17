@@ -12,6 +12,7 @@ import { transactionRouter } from './routes/transactions';
 import { nachaRouter } from './routes/nacha';
 import { configRouter } from './routes/config';
 import { holidayRouter } from './routes/holidays';
+import { organizationRouter } from './routes/organizations';
 import { ApiResponse } from './types';
 
 // Load environment variables
@@ -72,6 +73,7 @@ app.get('/health', (_req, res) => {
 
 // API Routes
 app.use('/api/auth', authRouter);
+app.use('/api/organizations', organizationRouter);
 app.use('/api/transactions', transactionRouter);
 app.use('/api/nacha', nachaRouter);
 app.use('/api/config', configRouter);
