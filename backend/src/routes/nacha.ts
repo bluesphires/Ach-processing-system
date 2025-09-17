@@ -109,14 +109,14 @@ router.post('/generate', requireOperator, async (req, res) => {
       message: `NACHA ${fileType} file generated successfully`
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Generate NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to generate NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -152,14 +152,14 @@ router.get('/files', async (req, res) => {
       pagination: result.pagination
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA files error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA files'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -184,14 +184,14 @@ router.get('/files/:id', async (req, res) => {
       data: nachaFile
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -215,14 +215,14 @@ router.get('/files/:id/download', async (req, res) => {
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Disposition', `attachment; filename="${nachaFile.filename}"`);
     
-    res.send(nachaFile.content);
+    return res.send(nachaFile.content);
   } catch (error) {
     console.error('Download NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to download NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -255,14 +255,14 @@ router.post('/files/:id/validate', async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Validate NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to validate NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -290,14 +290,14 @@ router.patch('/files/:id/transmitted', requireOperator, async (req, res) => {
       message: 'NACHA file marked as transmitted'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update NACHA file transmission status error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update NACHA file transmission status'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -324,14 +324,14 @@ router.get('/stats/generation', async (req, res) => {
       data: stats
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA generation stats error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA generation statistics'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 

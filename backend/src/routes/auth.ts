@@ -1,6 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import Joi from 'joi';
 import { DatabaseService } from '@/services/databaseService';
 import { User, UserRole, ApiResponse } from '@/types';
@@ -22,7 +22,7 @@ const loginSchema = Joi.object({
 });
 
 // Register new user
-router.post('/register', async (req, res): Promise<void> => {
+router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
@@ -62,7 +62,7 @@ router.post('/register', async (req, res): Promise<void> => {
     const token = jwt.sign(
       { userId: newUser.id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '7d' } as SignOptions
     );
 
     const response: ApiResponse = {
@@ -80,19 +80,19 @@ router.post('/register', async (req, res): Promise<void> => {
       message: 'User registered successfully'
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Registration error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to register user'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
 // Login user
-router.post('/login', async (req, res): Promise<void> => {
+router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
     if (error) {
@@ -130,7 +130,7 @@ router.post('/login', async (req, res): Promise<void> => {
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '7d' } as SignOptions
     );
 
     const response: ApiResponse = {
@@ -148,19 +148,19 @@ router.post('/login', async (req, res): Promise<void> => {
       message: 'Login successful'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Login error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to login'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
 // Get current user profile
-router.get('/profile', authMiddleware, async (req, res): Promise<void> => {
+router.get('/profile', authMiddleware, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
     const userId = req.user!.userId;
@@ -187,19 +187,19 @@ router.get('/profile', authMiddleware, async (req, res): Promise<void> => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Profile error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get user profile'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
 // Update user profile
-router.put('/profile', authMiddleware, async (req, res): Promise<void> => {
+router.put('/profile', authMiddleware, async (req, res) => {
   try {
     const updateSchema = Joi.object({
       name: Joi.string().min(2).optional(),
@@ -237,19 +237,19 @@ router.put('/profile', authMiddleware, async (req, res): Promise<void> => {
       message: 'Profile updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Profile update error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update profile'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
 // Change password
-router.put('/change-password', authMiddleware, async (req, res): Promise<void> => {
+router.put('/change-password', authMiddleware, async (req, res) => {
   try {
     const changePasswordSchema = Joi.object({
       currentPassword: Joi.string().required(),
@@ -300,14 +300,14 @@ router.put('/change-password', authMiddleware, async (req, res): Promise<void> =
       message: 'Password changed successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Change password error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to change password'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
