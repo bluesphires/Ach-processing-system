@@ -43,6 +43,7 @@ export interface NACHAFile {
   createdAt: Date;
   transmitted: boolean;
   transmittedAt?: Date;
+  encrypted?: boolean;
 }
 
 export interface FederalHoliday {

@@ -69,8 +69,8 @@ router.post('/generate', requireOperator, async (req, res) => {
       } as ACHTransaction;
     });
 
-    // Generate NACHA file
-    const nachaFile = nachaService.generateNACHAFile(
+    // Generate NACHA file with encryption
+    const nachaFile = nachaService.generateSecureNACHAFile(
       decryptedTransactions,
       targetEffectiveDate,
       fileType
@@ -201,6 +201,7 @@ router.get('/files/:id/download', async (req, res) => {
     const { id } = req.params;
 
     const databaseService: DatabaseService = req.app.locals.databaseService;
+    const nachaService: NACHAService = req.app.locals.nachaService;
     const nachaFile = await databaseService.getNACHAFile(id);
 
     if (!nachaFile) {
@@ -211,11 +212,14 @@ router.get('/files/:id/download', async (req, res) => {
       return res.status(404).json(response);
     }
 
+    // Get the actual content (decrypt if necessary)
+    const actualContent = nachaService.getNACHAFileContent(nachaFile.content);
+
     // Set headers for file download
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Disposition', `attachment; filename="${nachaFile.filename}"`);
     
-    return res.send(nachaFile.content);
+    return res.send(actualContent);
   } catch (error) {
     console.error('Download NACHA file error:', error);
     const response: ApiResponse = {
@@ -244,14 +248,17 @@ router.post('/files/:id/validate', async (req, res) => {
       return res.status(404).json(response);
     }
 
-    const validation = nachaService.validateNACHAFile(nachaFile.content);
+    const validation = nachaService.validateNACHAFileComplete(nachaFile.content);
 
     const response: ApiResponse = {
       success: true,
       data: {
         isValid: validation.isValid,
         errors: validation.errors,
-        filename: nachaFile.filename
+        filename: nachaFile.filename,
+        isEncrypted: validation.isEncrypted,
+        integrityValid: validation.integrityValid,
+        metadata: validation.metadata
       }
     };
 
