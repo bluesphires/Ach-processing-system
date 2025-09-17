@@ -80,7 +80,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 
     res.json({
       success: true,
-      data: result.transactions,
+      data: result.data,
       pagination: result.pagination
     });
   } catch (error: any) {
