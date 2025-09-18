@@ -27,14 +27,14 @@ router.get('/', requireAdmin, async (req, res) => {
       data: configs
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get system config error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve system configuration'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -59,14 +59,14 @@ router.get('/:key', requireAdmin, async (req, res) => {
       data: config
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get system config error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve system configuration'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -101,14 +101,14 @@ router.put('/:key', requireAdmin, async (req, res) => {
       message: 'System configuration updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Set system config error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update system configuration'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -152,14 +152,14 @@ router.post('/bulk', requireAdmin, async (req, res) => {
       message: `Updated ${updatedConfigs.length} system configurations`
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Bulk set system config error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update system configurations'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -189,14 +189,14 @@ router.get('/sftp/settings', requireAdmin, async (req, res) => {
       data: sftpSettings
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get SFTP settings error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve SFTP settings'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -253,14 +253,14 @@ router.put('/sftp/settings', requireAdmin, async (req, res) => {
       message: 'SFTP settings updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update SFTP settings error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update SFTP settings'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -290,14 +290,14 @@ router.get('/ach/settings', requireAdmin, async (req, res) => {
       data: achSettings
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get ACH settings error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve ACH settings'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -366,14 +366,14 @@ router.put('/ach/settings', requireAdmin, async (req, res) => {
       message: 'ACH settings updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update ACH settings error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update ACH settings'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -416,14 +416,14 @@ router.post('/sftp/test', requireAdmin, async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Test SFTP connection error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'SFTP connection test failed'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 

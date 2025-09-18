@@ -48,7 +48,7 @@ const nachaService = new NACHAService({
   companyName: process.env.ACH_COMPANY_NAME!,
   companyId: process.env.ACH_COMPANY_ID!,
   originatingDFI: process.env.ACH_IMMEDIATE_ORIGIN!
-});
+}, encryptionService);
 
 // Make services available to routes
 app.locals.databaseService = databaseService;

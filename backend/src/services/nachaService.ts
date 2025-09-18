@@ -1,5 +1,6 @@
 import moment from 'moment';
 import { ACHTransaction, NACHAFile } from '@/types';
+import { EncryptionService } from './encryptionService';
 
 export interface NACHAConfig {
   immediateDestination: string;
@@ -13,9 +14,11 @@ export interface NACHAConfig {
 export class NACHAService {
   private config: NACHAConfig;
   private fileSequenceNumber: number = 1;
+  private encryptionService?: EncryptionService;
 
-  constructor(config: NACHAConfig) {
+  constructor(config: NACHAConfig, encryptionService?: EncryptionService) {
     this.config = config;
+    this.encryptionService = encryptionService;
   }
 
   /**
@@ -24,23 +27,45 @@ export class NACHAService {
   generateNACHAFile(
     transactions: ACHTransaction[], 
     effectiveDate: Date,
-    fileType: 'DR' | 'CR' = 'DR'
+    fileType: 'DR' | 'CR' = 'DR',
+    encrypt: boolean = true
   ): NACHAFile {
     const filename = this.generateFilename(effectiveDate, fileType);
     const content = this.generateFileContent(transactions, effectiveDate, fileType);
+    const transactionIds = transactions.map(tx => tx.id);
+    
+    // Encrypt content if encryption service is available and encryption is requested
+    const finalContent = encrypt && this.encryptionService 
+      ? this.encryptionService.encryptNACHAFile(content, transactionIds, effectiveDate)
+      : content;
     
     const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
 
     return {
       id: this.generateId(),
       filename,
-      content,
+      content: finalContent,
       effectiveDate,
       transactionCount: transactions.length,
       totalAmount,
       createdAt: new Date(),
-      transmitted: false
+      transmitted: false,
+      encrypted: encrypt && !!this.encryptionService
     };
+  }
+
+  /**
+   * Generate NACHA file with enhanced security (always encrypted)
+   */
+  generateSecureNACHAFile(
+    transactions: ACHTransaction[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR' = 'DR'
+  ): NACHAFile {
+    if (!this.encryptionService) {
+      throw new Error('Encryption service is required for secure NACHA file generation');
+    }
+    return this.generateNACHAFile(transactions, effectiveDate, fileType, true);
   }
 
   /**
@@ -252,6 +277,93 @@ export class NACHAService {
    */
   private padRight(str: string, length: number, padChar: string): string {
     return str.padEnd(length, padChar).substring(0, length);
+  }
+
+  /**
+   * Decrypt and validate NACHA file content
+   */
+  decryptNACHAFile(encryptedContent: string): { content: string; metadata: any; isValid: boolean } {
+    if (!this.encryptionService) {
+      throw new Error('Encryption service is required for NACHA file decryption');
+    }
+    
+    return this.encryptionService.decryptNACHAFile(encryptedContent);
+  }
+
+  /**
+   * Get plain text content from NACHA file (handles both encrypted and unencrypted)
+   */
+  getNACHAFileContent(content: string): string {
+    // Check if content is encrypted (starts with FILE:)
+    if (content.startsWith('FILE:') && this.encryptionService) {
+      const decrypted = this.decryptNACHAFile(content);
+      return decrypted.content;
+    }
+    
+    // Return as-is if not encrypted
+    return content;
+  }
+
+  /**
+   * Enhanced NACHA file validation with encryption support
+   */
+  validateNACHAFileComplete(content: string): { 
+    isValid: boolean; 
+    errors: string[]; 
+    isEncrypted: boolean; 
+    metadata?: any;
+    integrityValid?: boolean;
+  } {
+    let actualContent = content;
+    let isEncrypted = false;
+    let metadata: any = {};
+    let integrityValid = true;
+
+    // Handle encrypted content
+    if (content.startsWith('FILE:')) {
+      isEncrypted = true;
+      if (!this.encryptionService) {
+        return {
+          isValid: false,
+          errors: ['Encrypted file detected but no encryption service available'],
+          isEncrypted: true
+        };
+      }
+
+      try {
+        const decrypted = this.decryptNACHAFile(content);
+        actualContent = decrypted.content;
+        metadata = decrypted.metadata;
+        integrityValid = decrypted.isValid;
+        
+        if (!integrityValid) {
+          return {
+            isValid: false,
+            errors: ['File integrity check failed - content may be corrupted'],
+            isEncrypted: true,
+            metadata,
+            integrityValid: false
+          };
+        }
+      } catch (error) {
+        return {
+          isValid: false,
+          errors: [`Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+          isEncrypted: true,
+          integrityValid: false
+        };
+      }
+    }
+
+    // Validate NACHA format
+    const validation = this.validateNACHAFile(actualContent);
+    
+    return {
+      ...validation,
+      isEncrypted,
+      metadata,
+      integrityValid
+    };
   }
 
   /**

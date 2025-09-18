@@ -116,14 +116,14 @@ router.post('/', requireOperator, async (req, res) => {
       message: 'ACH transaction created successfully'
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Create transaction error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to create ACH transaction'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -186,14 +186,14 @@ router.get('/', async (req, res) => {
       pagination: result.pagination
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transactions error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve ACH transactions'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -239,14 +239,14 @@ router.get('/:id', async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transaction error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve ACH transaction'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -286,14 +286,14 @@ router.patch('/:id/status', requireOperator, async (req, res) => {
       message: 'Transaction status updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update transaction status error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update transaction status'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -329,14 +329,14 @@ router.get('/stats/summary', async (req, res) => {
       data: stats
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transaction stats error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve transaction statistics'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
