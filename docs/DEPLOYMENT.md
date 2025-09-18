@@ -44,8 +44,10 @@ Note down these values from your Supabase project settings:
 
 1. Go to [Railway](https://railway.app) and create a new project
 2. Connect your GitHub repository
-3. Select the backend deployment option
-4. Choose the `backend` directory as the root
+3. Railway will automatically detect the `Procfile` and `.railway/config.json` configuration
+4. The app will be configured to run from the repository root with proper build commands
+
+> **Note**: This repository includes a `Procfile` and Railway configuration in `.railway/config.json` that automatically handles the build and deployment process.
 
 ### 2. Configure Environment Variables
 
