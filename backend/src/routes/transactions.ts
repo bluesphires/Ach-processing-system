@@ -462,7 +462,7 @@ router.get('/entries', async (req, res) => {
       businessDayService
     );
 
-    const filters: any = {};
+    const filters: TransactionEntryFilters = {};
     if (value.status) filters.status = value.status;
     if (value.effectiveDate) filters.effectiveDate = new Date(value.effectiveDate);
     if (value.entryType) filters.entryType = value.entryType;
