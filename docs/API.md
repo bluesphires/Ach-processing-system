@@ -122,22 +122,6 @@ Change user password.
 }
 ```
 
-# API Documentation
-
-## Authentication
-
-All API endpoints except `/health` require authentication. Include the JWT token in the `Authorization` header:
-
-```
-Authorization: Bearer <token>
-```
-
-## Base URL
-
-```
-https://your-domain.com/api
-```
-
 ## Organization Endpoints
 
 ### GET /api/organizations
