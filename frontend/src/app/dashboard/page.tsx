@@ -48,7 +48,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
