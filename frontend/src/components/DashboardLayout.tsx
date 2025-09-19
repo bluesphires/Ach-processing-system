@@ -15,6 +15,7 @@ import {
   XMarkIcon,
   CalendarIcon,
   ArrowRightOnRectangleIcon,
+  BuildingOfficeIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { UserRole } from '@/types';
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: true },
   { name: 'Transactions', href: '/dashboard/transactions', icon: BanknotesIcon, current: false },
   { name: 'NACHA Files', href: '/dashboard/nacha', icon: DocumentTextIcon, current: false },
+  { name: 'Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon, current: false, roles: [UserRole.ADMIN] },
   { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, current: false },
   { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: [UserRole.ADMIN] },
   { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: [UserRole.ADMIN] },

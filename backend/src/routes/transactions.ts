@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
+import { ACHTransaction, EncryptedTransaction, TransactionStatus, TransactionFilters, ApiResponse } from '@/types';
 import { TransactionEntryService } from '@/services/transactionEntryService';
 import { ACHTransaction, EncryptedTransaction, TransactionStatus, ApiResponse } from '@/types';
 import { authMiddleware, requireOperator } from '@/middleware/auth';
@@ -15,6 +16,8 @@ router.use(authMiddleware);
 
 // Validation schema for ACH transaction
 const transactionSchema = Joi.object({
+  organizationKey: Joi.string().uuid().required(),
+  
   // Debit Information
   drRoutingNumber: Joi.string().pattern(/^\d{9}$/).required().messages({
     'string.pattern.base': 'DR Routing Number must be exactly 9 digits'
@@ -92,15 +95,30 @@ router.post('/', requireOperator, async (req, res) => {
     const encryptionService: EncryptionService = req.app.locals.encryptionService;
     const businessDayService: BusinessDayService = req.app.locals.businessDayService;
 
+    // Verify organization exists and get organization ID
+    const organization = await databaseService.getOrganizationByKey(value.organizationKey);
+    if (!organization) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Invalid organization key'
+      };
+      return res.status(400).json(response);
+    }
+
     // Get client IP address
     const senderIp = req.ip || req.connection.remoteAddress || 'unknown';
 
     // Ensure effective date is a business day
     const effectiveDate = businessDayService.getACHEffectiveDate(new Date(value.effectiveDate));
 
+    // Generate trace number
+    const traceNumber = Math.floor(Math.random() * 999999999999999).toString().padStart(15, '0');
+
     // Create transaction object
     const transaction: ACHTransaction = {
       id: uuidv4(),
+      organizationId: organization.id,
+      traceNumber,
       drRoutingNumber: value.drRoutingNumber,
       drAccountNumber: value.drAccountNumber,
       drId: value.drId,
@@ -136,6 +154,8 @@ router.post('/', requireOperator, async (req, res) => {
       success: true,
       data: {
         id: savedTransaction.id,
+        organizationId: savedTransaction.organizationId,
+        traceNumber: savedTransaction.traceNumber,
         drRoutingNumber: savedTransaction.drRoutingNumber,
         drId: savedTransaction.drId,
         drName: savedTransaction.drName,
@@ -218,14 +238,22 @@ router.post('/separate', requireOperator, async (req, res) => {
   }
 });
 
-// Get all ACH transactions with pagination and filtering
+// Get all ACH transactions with pagination and enhanced filtering
 router.get('/', async (req, res) => {
   try {
     const querySchema = Joi.object({
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(50),
       status: Joi.string().valid(...Object.values(TransactionStatus)).optional(),
-      effectiveDate: Joi.date().optional()
+      effectiveDate: Joi.date().optional(),
+      organizationKey: Joi.string().uuid().optional(),
+      amountMin: Joi.number().min(0).optional(),
+      amountMax: Joi.number().min(0).optional(),
+      traceNumber: Joi.string().optional(),
+      drId: Joi.string().optional(),
+      crId: Joi.string().optional(),
+      dateFrom: Joi.date().optional(),
+      dateTo: Joi.date().optional()
     });
 
     const { error, value } = querySchema.validate(req.query);
@@ -240,9 +268,30 @@ router.get('/', async (req, res) => {
     const databaseService: DatabaseService = req.app.locals.databaseService;
     const encryptionService: EncryptionService = req.app.locals.encryptionService;
 
-    const filters: any = {};
+    const filters: TransactionFilters = {};
     if (value.status) filters.status = value.status;
     if (value.effectiveDate) filters.effectiveDate = new Date(value.effectiveDate);
+    if (value.amountMin !== undefined) filters.amountMin = value.amountMin;
+    if (value.amountMax !== undefined) filters.amountMax = value.amountMax;
+    if (value.traceNumber) filters.traceNumber = value.traceNumber;
+    if (value.drId) filters.drId = value.drId;
+    if (value.crId) filters.crId = value.crId;
+    if (value.dateFrom) filters.dateFrom = new Date(value.dateFrom);
+    if (value.dateTo) filters.dateTo = new Date(value.dateTo);
+
+    // Handle organization filtering
+    if (value.organizationKey) {
+      const organization = await databaseService.getOrganizationByKey(value.organizationKey);
+      if (organization) {
+        filters.organizationId = organization.id;
+      } else {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Invalid organization key'
+        };
+        return res.status(400).json(response);
+      }
+    }
 
     const result = await databaseService.getTransactions(value.page, value.limit, filters);
 

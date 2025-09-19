@@ -1,3 +1,17 @@
+export interface Organization {
+  id: string;
+  organizationKey: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ACHTransaction {
+  id: string;
+  organizationId: string;
+  traceNumber: string;
 // Individual transaction entry (either debit or credit)
 export interface TransactionEntry {
   id: string;
@@ -112,6 +126,7 @@ export interface EncryptedTransaction extends Omit<ACHTransaction, 'drAccountNum
 
 export interface NACHAFile {
   id: string;
+  organizationId: string;
   filename: string;
   content: string;
   effectiveDate: Date;
@@ -193,6 +208,7 @@ export interface User {
   password: string;
   role: UserRole;
   name: string;
+  organizationId?: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -257,5 +273,18 @@ export interface AuthTokenPayload {
   export interface BusinessDayCalculatorOptions {
   holidays: Date[];
   excludeWeekends: boolean;
+}
+
+export interface TransactionFilters {
+  status?: string;
+  effectiveDate?: Date;
+  organizationId?: string;
+  amountMin?: number;
+  amountMax?: number;
+  traceNumber?: string;
+  drId?: string;
+  crId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
 
 }

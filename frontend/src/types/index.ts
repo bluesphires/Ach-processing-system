@@ -70,8 +70,20 @@ export interface ACHTransaction {
   createdBy: string;
   updatedBy?: string;
 // Types shared between frontend and backend
+export interface Organization {
+  id: string;
+  organizationKey: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ACHTransaction {
   id: string;
+  organizationId: string;
+  traceNumber: string;
   // Debit Information
   drRoutingNumber: string;
   drAccountNumber: string; // This will be masked on the frontend
@@ -102,6 +114,7 @@ export enum TransactionStatus {
 
 export interface NACHAFile {
   id: string;
+  organizationId: string;
   filename: string;
   effectiveDate: Date;
   totalRecords: number;
@@ -168,6 +181,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  organizationId?: string;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -260,6 +274,7 @@ export interface AuthResponse {
 
 // Legacy create transaction request (kept for backward compatibility)
 export interface CreateTransactionRequest {
+  organizationKey: string;
   drRoutingNumber: string;
   drAccountNumber: string;
   drId: string;
@@ -333,4 +348,17 @@ export interface BusinessDayInfo {
   isHoliday: boolean;
   isWeekend: boolean;
   dayOfWeek: string;
+}
+
+export interface TransactionFilters {
+  status?: string;
+  effectiveDate?: string;
+  organizationKey?: string;
+  amountMin?: number;
+  amountMax?: number;
+  traceNumber?: string;
+  drId?: string;
+  crId?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }

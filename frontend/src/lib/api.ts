@@ -5,12 +5,15 @@ import {
   RegisterRequest, 
   AuthResponse, 
   User, 
+  Organization,
+  ACHTransaction, 
   ACHTransaction,
   TransactionEntry,
   TransactionGroup,
   CreateTransactionRequest,
   CreateSeparateTransactionRequest,
   TransactionStats,
+  TransactionFilters,
   NACHAFile,
   NACHAGenerationStats,
   FederalHoliday,
@@ -83,6 +86,31 @@ class ApiClient {
     return this.token;
   }
 
+  // Organization endpoints
+  async createOrganization(organization: { name: string; description?: string; active?: boolean }): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.post('/api/organizations', organization);
+    return response.data;
+  }
+
+  async getOrganizations(params?: { page?: number; limit?: number }): Promise<ApiResponse<Organization[]>> {
+    const response: AxiosResponse<ApiResponse<Organization[]>> = await this.client.get('/api/organizations', { params });
+    return response.data;
+  }
+
+  async getOrganization(id: string): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.get(`/api/organizations/${id}`);
+    return response.data;
+  }
+
+  async getOrganizationByKey(organizationKey: string): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.get(`/api/organizations/key/${organizationKey}`);
+    return response.data;
+  }
+
+  async updateOrganization(id: string, updates: { name?: string; description?: string; active?: boolean }): Promise<ApiResponse> {
+    const response: AxiosResponse<ApiResponse> = await this.client.put(`/api/organizations/${id}`, updates);
+    return response.data;
+  }
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/api/auth/login', credentials);
@@ -115,11 +143,9 @@ class ApiClient {
     return response.data;
   }
 
-  async getTransactions(params?: {
+  async getTransactions(params?: TransactionFilters & {
     page?: number;
     limit?: number;
-    status?: string;
-    effectiveDate?: string;
   }): Promise<ApiResponse<ACHTransaction[]>> {
     const response: AxiosResponse<ApiResponse<ACHTransaction[]>> = await this.client.get('/api/transactions', { params });
     return response.data;

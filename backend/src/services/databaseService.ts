@@ -9,6 +9,8 @@ import {
   FederalHoliday, 
   SystemConfig, 
   User,
+  Organization,
+  TransactionFilters,
   PaginatedResponse
 } from '@/types';
 
@@ -19,11 +21,160 @@ export class DatabaseService {
     this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
+  // Organizations
+  async createOrganization(organization: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>): Promise<Organization> {
+    const { data, error } = await this.supabase
+      .from('organizations')
+      .insert({
+        organization_key: organization.organizationKey,
+        name: organization.name,
+        description: organization.description,
+        active: organization.active
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create organization: ${error.message}`);
+    }
+
+    return {
+      id: data.id,
+      organizationKey: data.organization_key,
+      name: data.name,
+      description: data.description,
+      active: data.active,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
+  }
+
+  async getOrganization(id: string): Promise<Organization | null> {
+    const { data, error } = await this.supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to get organization: ${error.message}`);
+    }
+
+    return {
+      id: data.id,
+      organizationKey: data.organization_key,
+      name: data.name,
+      description: data.description,
+      active: data.active,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
+  }
+
+  async getOrganizationByKey(organizationKey: string): Promise<Organization | null> {
+    const { data, error } = await this.supabase
+      .from('organizations')
+      .select('*')
+      .eq('organization_key', organizationKey)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to get organization: ${error.message}`);
+    }
+
+    return {
+      id: data.id,
+      organizationKey: data.organization_key,
+      name: data.name,
+      description: data.description,
+      active: data.active,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
+  }
+
+  async getOrganizations(page: number = 1, limit: number = 50): Promise<PaginatedResponse<Organization>> {
+    const offset = (page - 1) * limit;
+
+    const { data, error, count } = await this.supabase
+      .from('organizations')
+      .select('*', { count: 'exact' })
+      .order('name')
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw new Error(`Failed to get organizations: ${error.message}`);
+    }
+
+    const organizations = data?.map(org => ({
+      id: org.id,
+      organizationKey: org.organization_key,
+      name: org.name,
+      description: org.description,
+      active: org.active,
+      createdAt: new Date(org.created_at),
+      updatedAt: new Date(org.updated_at)
+    })) || [];
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return {
+      success: true,
+      data: organizations,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages
+      }
+    };
+  }
+
+  async updateOrganization(id: string, updates: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> {
+    const updateData: any = {};
+    if (updates.organizationKey) updateData.organization_key = updates.organizationKey;
+    if (updates.name) updateData.name = updates.name;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.active !== undefined) updateData.active = updates.active;
+
+    const { error } = await this.supabase
+      .from('organizations')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to update organization: ${error.message}`);
+    }
+  }
+
   // ACH Transactions
   async createTransaction(transaction: EncryptedTransaction): Promise<EncryptedTransaction> {
     const { data, error } = await this.supabase
       .from('ach_transactions')
-      .insert([transaction])
+      .insert({
+        id: transaction.id,
+        organization_id: transaction.organizationId,
+        trace_number: transaction.traceNumber,
+        dr_routing_number: transaction.drRoutingNumber,
+        dr_account_number_encrypted: transaction.drAccountNumberEncrypted,
+        dr_id: transaction.drId,
+        dr_name: transaction.drName,
+        cr_routing_number: transaction.crRoutingNumber,
+        cr_account_number_encrypted: transaction.crAccountNumberEncrypted,
+        cr_id: transaction.crId,
+        cr_name: transaction.crName,
+        amount: transaction.amount,
+        effective_date: transaction.effectiveDate.toISOString().split('T')[0],
+        sender_ip: transaction.senderIp,
+        sender_details: transaction.senderDetails,
+        status: transaction.status
+      })
       .select()
       .single();
 
@@ -31,7 +182,26 @@ export class DatabaseService {
       throw new Error(`Failed to create transaction: ${error.message}`);
     }
 
-    return data;
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      traceNumber: data.trace_number,
+      drRoutingNumber: data.dr_routing_number,
+      drAccountNumberEncrypted: data.dr_account_number_encrypted,
+      drId: data.dr_id,
+      drName: data.dr_name,
+      crRoutingNumber: data.cr_routing_number,
+      crAccountNumberEncrypted: data.cr_account_number_encrypted,
+      crId: data.cr_id,
+      crName: data.cr_name,
+      amount: data.amount,
+      effectiveDate: new Date(data.effective_date),
+      senderIp: data.sender_ip,
+      senderDetails: data.sender_details,
+      status: data.status,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
   }
 
   async getTransaction(id: string): Promise<EncryptedTransaction | null> {
@@ -48,13 +218,32 @@ export class DatabaseService {
       throw new Error(`Failed to get transaction: ${error.message}`);
     }
 
-    return data;
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      traceNumber: data.trace_number,
+      drRoutingNumber: data.dr_routing_number,
+      drAccountNumberEncrypted: data.dr_account_number_encrypted,
+      drId: data.dr_id,
+      drName: data.dr_name,
+      crRoutingNumber: data.cr_routing_number,
+      crAccountNumberEncrypted: data.cr_account_number_encrypted,
+      crId: data.cr_id,
+      crName: data.cr_name,
+      amount: data.amount,
+      effectiveDate: new Date(data.effective_date),
+      senderIp: data.sender_ip,
+      senderDetails: data.sender_details,
+      status: data.status,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
   }
 
   async getTransactions(
     page: number = 1, 
     limit: number = 50,
-    filters?: { status?: string; effectiveDate?: Date }
+    filters?: TransactionFilters
   ): Promise<PaginatedResponse<EncryptedTransaction>> {
     let query = this.supabase
       .from('ach_transactions')
@@ -65,12 +254,36 @@ export class DatabaseService {
       query = query.eq('status', filters.status);
     }
     if (filters?.effectiveDate) {
-      query = query.eq('effectiveDate', filters.effectiveDate.toISOString());
+      query = query.eq('effective_date', filters.effectiveDate.toISOString().split('T')[0]);
+    }
+    if (filters?.organizationId) {
+      query = query.eq('organization_id', filters.organizationId);
+    }
+    if (filters?.amountMin !== undefined) {
+      query = query.gte('amount', filters.amountMin);
+    }
+    if (filters?.amountMax !== undefined) {
+      query = query.lte('amount', filters.amountMax);
+    }
+    if (filters?.traceNumber) {
+      query = query.eq('trace_number', filters.traceNumber);
+    }
+    if (filters?.drId) {
+      query = query.ilike('dr_id', `%${filters.drId}%`);
+    }
+    if (filters?.crId) {
+      query = query.ilike('cr_id', `%${filters.crId}%`);
+    }
+    if (filters?.dateFrom) {
+      query = query.gte('created_at', filters.dateFrom.toISOString());
+    }
+    if (filters?.dateTo) {
+      query = query.lte('created_at', filters.dateTo.toISOString());
     }
 
     // Apply pagination
     const offset = (page - 1) * limit;
-    query = query.range(offset, offset + limit - 1);
+    query = query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
 
     const { data, error, count } = await query;
 
@@ -78,11 +291,32 @@ export class DatabaseService {
       throw new Error(`Failed to get transactions: ${error.message}`);
     }
 
+    const transactions = data?.map(tx => ({
+      id: tx.id,
+      organizationId: tx.organization_id,
+      traceNumber: tx.trace_number,
+      drRoutingNumber: tx.dr_routing_number,
+      drAccountNumberEncrypted: tx.dr_account_number_encrypted,
+      drId: tx.dr_id,
+      drName: tx.dr_name,
+      crRoutingNumber: tx.cr_routing_number,
+      crAccountNumberEncrypted: tx.cr_account_number_encrypted,
+      crId: tx.cr_id,
+      crName: tx.cr_name,
+      amount: tx.amount,
+      effectiveDate: new Date(tx.effective_date),
+      senderIp: tx.sender_ip,
+      senderDetails: tx.sender_details,
+      status: tx.status,
+      createdAt: new Date(tx.created_at),
+      updatedAt: new Date(tx.updated_at)
+    })) || [];
+
     const totalPages = Math.ceil((count || 0) / limit);
 
     return {
       success: true,
-      data: data || [],
+      data: transactions,
       pagination: {
         page,
         limit,
