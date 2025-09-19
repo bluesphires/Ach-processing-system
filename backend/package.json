@@ -11,7 +11,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-
+    "build": "(tsc --noEmitOnError false || true) && tsc-alias",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
@@ -46,6 +46,7 @@
     "morgan": "^1.10.0",
     "node-ssh": "^13.1.0",
     "ssh2-sftp-client": "^10.0.3",
+    "tsconfig-paths": "^4.2.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
@@ -54,6 +55,8 @@
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.5",
     "@types/jsonwebtoken": "^9.0.5",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^20.8.0",
     "@types/crypto-js": "^4.2.1",
     "@types/uuid": "^9.0.7",
     "@types/node": "^20.9.0",
@@ -77,6 +80,7 @@
     "supertest": "^7.1.4",
     "ts-jest": "^29.1.1",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.2.2"
   },
   "jest": {

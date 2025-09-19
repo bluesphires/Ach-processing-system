@@ -530,6 +530,37 @@ A production-ready secure cloud system for processing ACH transactions with NACH
 
 See full documentation in the `docs/` directory for detailed setup instructions.
 
+## Railway Deployment
+
+This system is configured for easy deployment on Railway's free tier:
+
+### Quick Deploy to Railway
+
+1. **Connect Repository**: Go to [Railway](https://railway.app), create a new project, and connect this GitHub repository
+2. **Configure Environment Variables**: Set the following in Railway's environment settings:
+   ```
+   NODE_ENV=production
+   PORT=3001
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   FRONTEND_URL=https://your-frontend-domain.vercel.app
+   JWT_SECRET=your_very_long_random_jwt_secret_key_here
+   ENCRYPTION_KEY=your_32_character_encryption_key_here
+   ACH_IMMEDIATE_DESTINATION=123456789
+   ACH_IMMEDIATE_ORIGIN=987654321
+   ACH_COMPANY_NAME=Your Company Name
+   ACH_COMPANY_ID=1234567890
+   ```
+3. **Deploy**: Railway will automatically build and deploy your backend
+4. **Health Check**: Verify deployment at `https://your-app.railway.app/health`
+
+### Prerequisites
+- [Supabase](https://supabase.com) account (free tier available)
+- [Railway](https://railway.app) account (free tier available)
+- GitHub repository connected to Railway
+
+See `docs/DEPLOYMENT.md` for complete deployment instructions including frontend setup on Vercel.
+
 ## Architecture
 
 The system follows a modern three-tier architecture with React frontend, Express API backend, and PostgreSQL database, designed for scalability and security in processing ACH transactions and generating NACHA-compliant files.
