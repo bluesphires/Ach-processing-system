@@ -169,7 +169,8 @@ export class DatabaseService {
       query = query.eq('status', filters.status);
     }
     if (filters?.effectiveDate) {
-      query = query.eq('effectiveDate', filters.effectiveDate.toISOString());
+      // Use date-only format for effectiveDate comparison
+      query = query.eq('effectiveDate', filters.effectiveDate.toISOString().slice(0, 10));
     }
     if (filters?.entryType) {
       query = query.eq('entryType', filters.entryType);
