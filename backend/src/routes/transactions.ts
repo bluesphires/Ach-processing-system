@@ -4,8 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
+import { ACHTransaction, EncryptedTransaction, TransactionStatus, TransactionFilters, ApiResponse } from '@/types';
+import { TransactionEntryService } from '@/services/transactionEntryService';
 import { ACHTransaction, EncryptedTransaction, TransactionStatus, ApiResponse } from '@/types';
-import { authMiddleware, requireOperator } from '@/middleware/auth';
+import { authMiddleware, requireOperator, requireTransactionAccess, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
 
@@ -14,6 +16,8 @@ router.use(authMiddleware);
 
 // Validation schema for ACH transaction
 const transactionSchema = Joi.object({
+  organizationKey: Joi.string().uuid().required(),
+  
   // Debit Information
   drRoutingNumber: Joi.string().pattern(/^\d{9}$/).required().messages({
     'string.pattern.base': 'DR Routing Number must be exactly 9 digits'
@@ -42,6 +46,41 @@ const transactionSchema = Joi.object({
   senderDetails: Joi.string().max(255).optional()
 });
 
+// Create a new ACH transaction - Allow organizations to submit transactions
+router.post('/', requireTransactionAccess, async (req, res) => {
+// Validation schema for separate debit/credit transaction
+const separateTransactionSchema = Joi.object({
+  // Debit Information
+  drRoutingNumber: Joi.string().pattern(/^\d{9}$/).required().messages({
+    'string.pattern.base': 'DR Routing Number must be exactly 9 digits'
+  }),
+  drAccountNumber: Joi.string().min(1).max(17).required(),
+  drId: Joi.string().max(15).required(),
+  drName: Joi.string().max(22).required(),
+  drEffectiveDate: Joi.date().min('now').required().messages({
+    'date.min': 'DR Effective date cannot be in the past'
+  }),
+  
+  // Credit Information
+  crRoutingNumber: Joi.string().pattern(/^\d{9}$/).required().messages({
+    'string.pattern.base': 'CR Routing Number must be exactly 9 digits'
+  }),
+  crAccountNumber: Joi.string().min(1).max(17).required(),
+  crId: Joi.string().max(15).required(),
+  crName: Joi.string().max(22).required(),
+  crEffectiveDate: Joi.date().min('now').required().messages({
+    'date.min': 'CR Effective date cannot be in the past'
+  }),
+  
+  // Transaction Details
+  amount: Joi.number().positive().precision(2).required().messages({
+    'number.positive': 'Amount must be a positive number'
+  }),
+  
+  // Optional metadata
+  senderDetails: Joi.string().max(255).optional()
+});
+
 // Create a new ACH transaction
 router.post('/', requireOperator, async (req, res) => {
   try {
@@ -58,15 +97,30 @@ router.post('/', requireOperator, async (req, res) => {
     const encryptionService: EncryptionService = req.app.locals.encryptionService;
     const businessDayService: BusinessDayService = req.app.locals.businessDayService;
 
+    // Verify organization exists and get organization ID
+    const organization = await databaseService.getOrganizationByKey(value.organizationKey);
+    if (!organization) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Invalid organization key'
+      };
+      return res.status(400).json(response);
+    }
+
     // Get client IP address
     const senderIp = req.ip || req.connection.remoteAddress || 'unknown';
 
     // Ensure effective date is a business day
     const effectiveDate = businessDayService.getACHEffectiveDate(new Date(value.effectiveDate));
 
+    // Generate trace number
+    const traceNumber = Math.floor(Math.random() * 999999999999999).toString().padStart(15, '0');
+
     // Create transaction object
     const transaction: ACHTransaction = {
       id: uuidv4(),
+      organizationId: organization.id,
+      traceNumber,
       drRoutingNumber: value.drRoutingNumber,
       drAccountNumber: value.drAccountNumber,
       drId: value.drId,
@@ -102,6 +156,8 @@ router.post('/', requireOperator, async (req, res) => {
       success: true,
       data: {
         id: savedTransaction.id,
+        organizationId: savedTransaction.organizationId,
+        traceNumber: savedTransaction.traceNumber,
         drRoutingNumber: savedTransaction.drRoutingNumber,
         drId: savedTransaction.drId,
         drName: savedTransaction.drName,
@@ -116,25 +172,92 @@ router.post('/', requireOperator, async (req, res) => {
       message: 'ACH transaction created successfully'
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Create transaction error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to create ACH transaction'
     };
+    return res.status(500).json(response);
+  }
+});
+
+// Create a new transaction with separate debit and credit entries
+router.post('/separate', requireOperator, async (req, res) => {
+  try {
+    const { error, value } = separateTransactionSchema.validate(req.body);
+    if (error) {
+      const response: ApiResponse = {
+        success: false,
+        error: error.details[0].message
+      };
+      return res.status(400).json(response);
+    }
+
+    const databaseService: DatabaseService = req.app.locals.databaseService;
+    const encryptionService: EncryptionService = req.app.locals.encryptionService;
+    const businessDayService: BusinessDayService = req.app.locals.businessDayService;
+
+    // Create transaction entry service
+    const transactionEntryService = new TransactionEntryService(
+      databaseService,
+      encryptionService,
+      businessDayService
+    );
+
+    // Get client IP address
+    const senderIp = req.ip || req.connection.remoteAddress || 'unknown';
+
+    // Create separate transaction
+    const transactionGroup = await transactionEntryService.createSeparateTransaction(
+      value,
+      senderIp
+    );
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: transactionGroup.id,
+        drEntryId: transactionGroup.drEntryId,
+        crEntryId: transactionGroup.crEntryId,
+        amount: value.amount,
+        drEffectiveDate: value.drEffectiveDate,
+        crEffectiveDate: value.crEffectiveDate,
+        createdAt: transactionGroup.createdAt
+      },
+      message: 'Separate debit/credit transaction created successfully'
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Create separate transaction error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to create separate debit/credit transaction'
+    };
     res.status(500).json(response);
   }
 });
 
-// Get all ACH transactions with pagination and filtering
+// Get all ACH transactions with pagination and filtering - Internal access only
+router.get('/', requireInternal, async (req, res) => {
+// Get all ACH transactions with pagination and enhanced filtering
 router.get('/', async (req, res) => {
   try {
     const querySchema = Joi.object({
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(50),
       status: Joi.string().valid(...Object.values(TransactionStatus)).optional(),
-      effectiveDate: Joi.date().optional()
+      effectiveDate: Joi.date().optional(),
+      organizationKey: Joi.string().uuid().optional(),
+      amountMin: Joi.number().min(0).optional(),
+      amountMax: Joi.number().min(0).optional(),
+      traceNumber: Joi.string().optional(),
+      drId: Joi.string().optional(),
+      crId: Joi.string().optional(),
+      dateFrom: Joi.date().optional(),
+      dateTo: Joi.date().optional()
     });
 
     const { error, value } = querySchema.validate(req.query);
@@ -149,9 +272,30 @@ router.get('/', async (req, res) => {
     const databaseService: DatabaseService = req.app.locals.databaseService;
     const encryptionService: EncryptionService = req.app.locals.encryptionService;
 
-    const filters: any = {};
+    const filters: TransactionFilters = {};
     if (value.status) filters.status = value.status;
     if (value.effectiveDate) filters.effectiveDate = new Date(value.effectiveDate);
+    if (value.amountMin !== undefined) filters.amountMin = value.amountMin;
+    if (value.amountMax !== undefined) filters.amountMax = value.amountMax;
+    if (value.traceNumber) filters.traceNumber = value.traceNumber;
+    if (value.drId) filters.drId = value.drId;
+    if (value.crId) filters.crId = value.crId;
+    if (value.dateFrom) filters.dateFrom = new Date(value.dateFrom);
+    if (value.dateTo) filters.dateTo = new Date(value.dateTo);
+
+    // Handle organization filtering
+    if (value.organizationKey) {
+      const organization = await databaseService.getOrganizationByKey(value.organizationKey);
+      if (organization) {
+        filters.organizationId = organization.id;
+      } else {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Invalid organization key'
+        };
+        return res.status(400).json(response);
+      }
+    }
 
     const result = await databaseService.getTransactions(value.page, value.limit, filters);
 
@@ -186,19 +330,19 @@ router.get('/', async (req, res) => {
       pagination: result.pagination
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transactions error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve ACH transactions'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
-// Get a specific ACH transaction by ID
-router.get('/:id', async (req, res) => {
+// Get a specific ACH transaction by ID - Internal access only
+router.get('/:id', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -239,14 +383,14 @@ router.get('/:id', async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transaction error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve ACH transaction'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -286,19 +430,19 @@ router.patch('/:id/status', requireOperator, async (req, res) => {
       message: 'Transaction status updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update transaction status error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update transaction status'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
-// Get transaction statistics
-router.get('/stats/summary', async (req, res) => {
+// Get transaction statistics - Internal access only
+router.get('/stats/summary', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 
@@ -329,12 +473,109 @@ router.get('/stats/summary', async (req, res) => {
       data: stats
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get transaction stats error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve transaction statistics'
+    };
+    return res.status(500).json(response);
+  }
+});
+
+// Get transaction entries (new separate debit/credit structure)
+router.get('/entries', async (req, res) => {
+  try {
+    const querySchema = Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(50),
+      status: Joi.string().valid(...Object.values(TransactionStatus)).optional(),
+      effectiveDate: Joi.date().optional(),
+      entryType: Joi.string().valid('DR', 'CR').optional()
+    });
+
+    const { error, value } = querySchema.validate(req.query);
+    if (error) {
+      const response: ApiResponse = {
+        success: false,
+        error: error.details[0].message
+      };
+      return res.status(400).json(response);
+    }
+
+    const databaseService: DatabaseService = req.app.locals.databaseService;
+    const encryptionService: EncryptionService = req.app.locals.encryptionService;
+    const businessDayService: BusinessDayService = req.app.locals.businessDayService;
+
+    // Create transaction entry service
+    const transactionEntryService = new TransactionEntryService(
+      databaseService,
+      encryptionService,
+      businessDayService
+    );
+
+    const filters: TransactionEntryFilters = {};
+    if (value.status) filters.status = value.status;
+    if (value.effectiveDate) filters.effectiveDate = new Date(value.effectiveDate);
+    if (value.entryType) filters.entryType = value.entryType;
+
+    const result = await transactionEntryService.getTransactionEntriesForDisplay(
+      value.page, 
+      value.limit, 
+      filters
+    );
+
+    const response: ApiResponse = {
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Get transaction entries error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to retrieve transaction entries'
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Get transaction groups (linked debit/credit pairs)
+router.get('/groups', async (req, res) => {
+  try {
+    const querySchema = Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(50)
+    });
+
+    const { error, value } = querySchema.validate(req.query);
+    if (error) {
+      const response: ApiResponse = {
+        success: false,
+        error: error.details[0].message
+      };
+      return res.status(400).json(response);
+    }
+
+    const databaseService: DatabaseService = req.app.locals.databaseService;
+
+    const result = await databaseService.getTransactionGroups(value.page, value.limit);
+
+    const response: ApiResponse = {
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Get transaction groups error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to retrieve transaction groups'
     };
     res.status(500).json(response);
   }
