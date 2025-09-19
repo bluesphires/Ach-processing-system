@@ -43,14 +43,14 @@ router.get('/', requireInternal, async (req, res) => {
       data: holidays
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get federal holidays error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve federal holidays'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -88,14 +88,14 @@ router.post('/', requireInternal, async (req, res) => {
       message: 'Federal holiday created successfully'
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Create federal holiday error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to create federal holiday'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -151,14 +151,14 @@ router.put('/:id', requireInternal, async (req, res) => {
       message: 'Federal holiday updated successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update federal holiday error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update federal holiday'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -193,14 +193,14 @@ router.delete('/:id', requireInternal, async (req, res) => {
       message: 'Federal holiday deleted successfully'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Delete federal holiday error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to delete federal holiday'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -258,14 +258,14 @@ router.post('/generate/:year', requireInternal, async (req, res) => {
       message: `Generated ${createdHolidays.length} default federal holidays for ${yearNum}`
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Generate federal holidays error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to generate federal holidays'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -300,14 +300,14 @@ router.get('/business-day/check/:date', requireInternal, async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Check business day error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to check business day'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -345,14 +345,14 @@ router.get('/business-day/calculate', requireInternal, async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Calculate business days error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to calculate business days'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -381,14 +381,14 @@ router.get('/business-day/next/:date', requireInternal, async (req, res) => {
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get next business day error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get next business day'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
