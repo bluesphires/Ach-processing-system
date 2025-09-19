@@ -95,8 +95,13 @@ export function useMarkNACHAFileTransmitted() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiClient.markNACHAFileTransmitted(id);
+    mutationFn: async (id: string): Promise<NACHAFile> => {
+      await apiClient.markNACHAFileTransmitted(id);
+      // Fetch the updated NACHA file after marking as transmitted
+      const response = await apiClient.getNACHAFile(id);
+      if (!response.data) {
+        throw new Error('Failed to fetch updated NACHA file');
+      }
       return response.data;
     },
     onSuccess: (updatedFile: NACHAFile, fileId: string) => {
@@ -185,7 +190,7 @@ export function useValidateNACHAFile() {
         validationResult
       );
       
-      const status = validationResult.isValid ? 'valid' : 'invalid';
+      const status = validationResult?.isValid ? 'valid' : 'invalid';
       toast.success(`File validation completed - ${status}`);
     },
     onError: (error: any) => {

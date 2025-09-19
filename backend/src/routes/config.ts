@@ -1,20 +1,13 @@
 import express from 'express';
 import Joi from 'joi';
 import { DatabaseService } from '@/services/databaseService';
-import { SystemConfig, ApiResponse } from '@/types';
+import { ApiResponse } from '@/types';
 import { authMiddleware, requireAdmin } from '@/middleware/auth';
 
 const router = express.Router();
 
 // Apply authentication to all routes
 router.use(authMiddleware);
-
-// Validation schema for system configuration
-const configSchema = Joi.object({
-  key: Joi.string().min(1).max(100).required(),
-  value: Joi.string().required(),
-  description: Joi.string().max(255).optional()
-});
 
 // Get all system configuration
 router.get('/', requireAdmin, async (req, res) => {

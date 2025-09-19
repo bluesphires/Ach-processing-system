@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import Joi from 'joi';
 import { DatabaseService } from '@/services/databaseService';
-import { User, UserRole, ApiResponse } from '@/types';
+import { UserRole, ApiResponse } from '@/types';
 import { authMiddleware } from '@/middleware/auth';
 
 const router = express.Router();
