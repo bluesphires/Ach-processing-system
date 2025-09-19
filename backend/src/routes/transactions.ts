@@ -7,7 +7,7 @@ import { BusinessDayService } from '@/services/businessDayService';
 import { ACHTransaction, EncryptedTransaction, TransactionStatus, TransactionFilters, ApiResponse } from '@/types';
 import { TransactionEntryService } from '@/services/transactionEntryService';
 import { ACHTransaction, EncryptedTransaction, TransactionStatus, ApiResponse } from '@/types';
-import { authMiddleware, requireOperator } from '@/middleware/auth';
+import { authMiddleware, requireOperator, requireTransactionAccess, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
 
@@ -46,6 +46,8 @@ const transactionSchema = Joi.object({
   senderDetails: Joi.string().max(255).optional()
 });
 
+// Create a new ACH transaction - Allow organizations to submit transactions
+router.post('/', requireTransactionAccess, async (req, res) => {
 // Validation schema for separate debit/credit transaction
 const separateTransactionSchema = Joi.object({
   // Debit Information
@@ -238,6 +240,8 @@ router.post('/separate', requireOperator, async (req, res) => {
   }
 });
 
+// Get all ACH transactions with pagination and filtering - Internal access only
+router.get('/', requireInternal, async (req, res) => {
 // Get all ACH transactions with pagination and enhanced filtering
 router.get('/', async (req, res) => {
   try {
@@ -337,8 +341,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get a specific ACH transaction by ID
-router.get('/:id', async (req, res) => {
+// Get a specific ACH transaction by ID - Internal access only
+router.get('/:id', requireInternal, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -437,8 +441,8 @@ router.patch('/:id/status', requireOperator, async (req, res) => {
   }
 });
 
-// Get transaction statistics
-router.get('/stats/summary', async (req, res) => {
+// Get transaction statistics - Internal access only
+router.get('/stats/summary', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 

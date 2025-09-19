@@ -217,7 +217,8 @@ export interface User {
 export enum UserRole {
   ADMIN = 'admin',
   OPERATOR = 'operator',
-  VIEWER = 'viewer'
+  VIEWER = 'viewer',
+  ORGANIZATION = 'organization'
 }
 
 export interface ApiResponse<T = any> {

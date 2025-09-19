@@ -275,7 +275,7 @@ import express from 'express';
 import Joi from 'joi';
 import { DatabaseService } from '@/services/databaseService';
 import { SystemConfig, ApiResponse } from '@/types';
-import { authMiddleware, requireAdmin } from '@/middleware/auth';
+import { authMiddleware, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
 
@@ -290,7 +290,7 @@ const configSchema = Joi.object({
 });
 
 // Get all system configuration
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
     const configs = await databaseService.getAllSystemConfig();
@@ -312,7 +312,7 @@ router.get('/', requireAdmin, async (req, res) => {
 });
 
 // Get a specific system configuration by key
-router.get('/:key', requireAdmin, async (req, res) => {
+router.get('/:key', requireInternal, async (req, res) => {
   try {
     const { key } = req.params;
 
@@ -344,7 +344,7 @@ router.get('/:key', requireAdmin, async (req, res) => {
 });
 
 // Set system configuration
-router.put('/:key', requireAdmin, async (req, res) => {
+router.put('/:key', requireInternal, async (req, res) => {
   try {
     const { key } = req.params;
     const setConfigSchema = Joi.object({
@@ -386,7 +386,7 @@ router.put('/:key', requireAdmin, async (req, res) => {
 });
 
 // Set multiple system configurations
-router.post('/bulk', requireAdmin, async (req, res) => {
+router.post('/bulk', requireInternal, async (req, res) => {
   try {
     const bulkConfigSchema = Joi.object({
       configs: Joi.array().items(
@@ -437,7 +437,7 @@ router.post('/bulk', requireAdmin, async (req, res) => {
 });
 
 // Get SFTP configuration (masked for security)
-router.get('/sftp/settings', requireAdmin, async (req, res) => {
+router.get('/sftp/settings', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 
@@ -474,7 +474,7 @@ router.get('/sftp/settings', requireAdmin, async (req, res) => {
 });
 
 // Update SFTP configuration
-router.put('/sftp/settings', requireAdmin, async (req, res) => {
+router.put('/sftp/settings', requireInternal, async (req, res) => {
   try {
     const sftpSettingsSchema = Joi.object({
       host: Joi.string().hostname().required(),
@@ -538,7 +538,7 @@ router.put('/sftp/settings', requireAdmin, async (req, res) => {
 });
 
 // Get ACH configuration
-router.get('/ach/settings', requireAdmin, async (req, res) => {
+router.get('/ach/settings', requireInternal, async (req, res) => {
   try {
     const databaseService: DatabaseService = req.app.locals.databaseService;
 
@@ -575,7 +575,7 @@ router.get('/ach/settings', requireAdmin, async (req, res) => {
 });
 
 // Update ACH configuration
-router.put('/ach/settings', requireAdmin, async (req, res) => {
+router.put('/ach/settings', requireInternal, async (req, res) => {
   try {
     const achSettingsSchema = Joi.object({
       immediateDestination: Joi.string().pattern(/^\d{9,10}$/).required().messages({
@@ -651,6 +651,7 @@ router.put('/ach/settings', requireAdmin, async (req, res) => {
 });
 
 // Test SFTP connection
+router.post('/sftp/test', requireInternal, async (req, res) => {
 router.post('/sftp/test', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const result = await ConfigService.testSFTPConnection();
