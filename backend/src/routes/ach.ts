@@ -209,7 +209,7 @@ router.get('/nacha/files', authenticateToken, async (req: AuthenticatedRequest, 
 
     res.json({
       success: true,
-      data: result.files,
+      data: result.data,
       pagination: result.pagination
     });
   } catch (error: any) {
