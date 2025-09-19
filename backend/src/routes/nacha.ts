@@ -4,6 +4,7 @@ import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
 import { NACHAService } from '@/services/nachaService';
+import { TransactionEntryService } from '@/services/transactionEntryService';
 import { ACHTransaction, TransactionStatus, ApiResponse } from '@/types';
 import { authMiddleware, requireOperator } from '@/middleware/auth';
 
@@ -69,8 +70,8 @@ router.post('/generate', requireOperator, async (req, res) => {
       } as ACHTransaction;
     });
 
-    // Generate NACHA file
-    const nachaFile = nachaService.generateNACHAFile(
+    // Generate NACHA file with encryption
+    const nachaFile = nachaService.generateSecureNACHAFile(
       decryptedTransactions,
       targetEffectiveDate,
       fileType
@@ -109,12 +110,109 @@ router.post('/generate', requireOperator, async (req, res) => {
       message: `NACHA ${fileType} file generated successfully`
     };
 
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     console.error('Generate NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to generate NACHA file'
+    };
+    return res.status(500).json(response);
+  }
+});
+
+// Generate NACHA files from transaction entries (new separate debit/credit structure)
+router.post('/generate-from-entries', requireOperator, async (req, res) => {
+  try {
+    const generateSchema = Joi.object({
+      effectiveDate: Joi.date().required(),
+      fileType: Joi.string().valid('DR', 'CR').required()
+    });
+
+    const { error, value } = generateSchema.validate(req.body);
+    if (error) {
+      const response: ApiResponse = {
+        success: false,
+        error: error.details[0].message
+      };
+      return res.status(400).json(response);
+    }
+
+    const databaseService: DatabaseService = req.app.locals.databaseService;
+    const encryptionService: EncryptionService = req.app.locals.encryptionService;
+    const businessDayService: BusinessDayService = req.app.locals.businessDayService;
+    const nachaService: NACHAService = req.app.locals.nachaService;
+
+    // Create transaction entry service
+    const transactionEntryService = new TransactionEntryService(
+      databaseService,
+      encryptionService,
+      businessDayService
+    );
+
+    const { effectiveDate, fileType } = value;
+
+    // Get transaction entries for the effective date and type
+    const targetEffectiveDate = new Date(effectiveDate);
+    const transactionEntries = await transactionEntryService.getTransactionEntriesForNACHA(
+      targetEffectiveDate,
+      fileType
+    );
+
+    if (transactionEntries.length === 0) {
+      const response: ApiResponse = {
+        success: false,
+        error: `No pending ${fileType} transaction entries found for effective date ${targetEffectiveDate.toISOString().split('T')[0]}`
+      };
+      return res.status(404).json(response);
+    }
+
+    // Generate NACHA file from transaction entries
+    const nachaFile = nachaService.generateNACHAFileFromEntries(
+      transactionEntries,
+      targetEffectiveDate,
+      fileType
+    );
+
+    // Save NACHA file to database
+    const savedNachaFile = await databaseService.createNACHAFile({
+      filename: nachaFile.filename,
+      content: nachaFile.content,
+      effectiveDate: nachaFile.effectiveDate,
+      transactionCount: nachaFile.transactionCount,
+      totalAmount: nachaFile.totalAmount,
+      transmitted: false
+    });
+
+    // Update transaction entry status to processed
+    await Promise.all(
+      transactionEntries.map(entry => 
+        transactionEntryService.updateTransactionEntryStatus(entry.id, TransactionStatus.PROCESSED)
+      )
+    );
+
+    // Increment NACHA service sequence number
+    nachaService.incrementSequenceNumber();
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: savedNachaFile.id,
+        filename: savedNachaFile.filename,
+        effectiveDate: savedNachaFile.effectiveDate,
+        transactionCount: savedNachaFile.transactionCount,
+        totalAmount: savedNachaFile.totalAmount,
+        createdAt: savedNachaFile.createdAt
+      },
+      message: `NACHA ${fileType} file generated successfully from transaction entries`
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Generate NACHA file from entries error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to generate NACHA file from transaction entries'
     };
     res.status(500).json(response);
   }
@@ -305,14 +403,14 @@ router.get('/files', async (req, res) => {
       pagination: result.pagination
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA files error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA files'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -337,14 +435,14 @@ router.get('/files/:id', async (req, res) => {
       data: nachaFile
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -354,6 +452,7 @@ router.get('/files/:id/download', async (req, res) => {
     const { id } = req.params;
 
     const databaseService: DatabaseService = req.app.locals.databaseService;
+    const nachaService: NACHAService = req.app.locals.nachaService;
     const nachaFile = await databaseService.getNACHAFile(id);
 
     if (!nachaFile) {
@@ -364,18 +463,21 @@ router.get('/files/:id/download', async (req, res) => {
       return res.status(404).json(response);
     }
 
+    // Get the actual content (decrypt if necessary)
+    const actualContent = nachaService.getNACHAFileContent(nachaFile.content);
+
     // Set headers for file download
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Disposition', `attachment; filename="${nachaFile.filename}"`);
     
-    res.send(nachaFile.content);
+    return res.send(actualContent);
   } catch (error) {
     console.error('Download NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to download NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -397,25 +499,28 @@ router.post('/files/:id/validate', async (req, res) => {
       return res.status(404).json(response);
     }
 
-    const validation = nachaService.validateNACHAFile(nachaFile.content);
+    const validation = nachaService.validateNACHAFileComplete(nachaFile.content);
 
     const response: ApiResponse = {
       success: true,
       data: {
         isValid: validation.isValid,
         errors: validation.errors,
-        filename: nachaFile.filename
+        filename: nachaFile.filename,
+        isEncrypted: validation.isEncrypted,
+        integrityValid: validation.integrityValid,
+        metadata: validation.metadata
       }
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Validate NACHA file error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to validate NACHA file'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -443,14 +548,14 @@ router.patch('/files/:id/transmitted', requireOperator, async (req, res) => {
       message: 'NACHA file marked as transmitted'
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Update NACHA file transmission status error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to update NACHA file transmission status'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 
@@ -477,14 +582,14 @@ router.get('/stats/generation', async (req, res) => {
       data: stats
     };
 
-    res.json(response);
+    return res.json(response);
   } catch (error) {
     console.error('Get NACHA generation stats error:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Failed to retrieve NACHA generation statistics'
     };
-    res.status(500).json(response);
+    return res.status(500).json(response);
   }
 });
 

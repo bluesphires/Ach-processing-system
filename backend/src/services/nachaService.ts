@@ -1,5 +1,8 @@
 import moment from 'moment';
+import { ACHTransaction, NACHAFile, TransactionEntry } from '@/types';
+=======
 import { ACHTransaction, NACHAFile } from '@/types';
+import { EncryptionService } from './encryptionService';
 
 export interface NACHAConfig {
   immediateDestination: string;
@@ -13,9 +16,11 @@ export interface NACHAConfig {
 export class NACHAService {
   private config: NACHAConfig;
   private fileSequenceNumber: number = 1;
+  private encryptionService?: EncryptionService;
 
-  constructor(config: NACHAConfig) {
+  constructor(config: NACHAConfig, encryptionService?: EncryptionService) {
     this.config = config;
+    this.encryptionService = encryptionService;
   }
 
   /**
@@ -24,23 +29,70 @@ export class NACHAService {
   generateNACHAFile(
     transactions: ACHTransaction[], 
     effectiveDate: Date,
-    fileType: 'DR' | 'CR' = 'DR'
+    fileType: 'DR' | 'CR' = 'DR',
+    encrypt: boolean = true
   ): NACHAFile {
     const filename = this.generateFilename(effectiveDate, fileType);
     const content = this.generateFileContent(transactions, effectiveDate, fileType);
+    const transactionIds = transactions.map(tx => tx.id);
+    
+    // Encrypt content if encryption service is available and encryption is requested
+    const finalContent = encrypt && this.encryptionService 
+      ? this.encryptionService.encryptNACHAFile(content, transactionIds, effectiveDate)
+      : content;
     
     const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
 
     return {
       id: this.generateId(),
       filename,
-      content,
+      content: finalContent,
       effectiveDate,
       transactionCount: transactions.length,
       totalAmount,
       createdAt: new Date(),
+      transmitted: false,
+      encrypted: encrypt && !!this.encryptionService
+    };
+  }
+
+  /**
+   * Generate a NACHA file from transaction entries (new method for separate debit/credit structure)
+   */
+  generateNACHAFileFromEntries(
+    entries: TransactionEntry[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR'
+  ): NACHAFile {
+    // Filter entries by type to ensure we only include the correct type
+    const filteredEntries = entries.filter(entry => entry.entryType === fileType);
+    
+    const filename = this.generateFilename(effectiveDate, fileType);
+    const content = this.generateFileContentFromEntries(filteredEntries, effectiveDate, fileType);
+    
+    const totalAmount = filteredEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+    return {
+      id: this.generateId(),
+      filename,
+      content,
+      effectiveDate,
+      transactionCount: filteredEntries.length,
+      totalAmount,
+      createdAt: new Date(),
       transmitted: false
     };
+   * Generate NACHA file with enhanced security (always encrypted)
+   */
+  generateSecureNACHAFile(
+    transactions: ACHTransaction[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR' = 'DR'
+  ): NACHAFile {
+    if (!this.encryptionService) {
+      throw new Error('Encryption service is required for secure NACHA file generation');
+    }
+    return this.generateNACHAFile(transactions, effectiveDate, fileType, true);
   }
 
   /**
@@ -69,6 +121,45 @@ export class NACHAService {
 
     // File Control Record (Record Type 9)
     lines.push(this.generateFileControl(transactions));
+
+    // Pad to multiple of 10 records with 9s
+    const recordCount = lines.length;
+    const paddingNeeded = 10 - (recordCount % 10);
+    if (paddingNeeded !== 10) {
+      for (let i = 0; i < paddingNeeded; i++) {
+        lines.push('9'.repeat(94));
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate the complete NACHA file content from transaction entries
+   */
+  private generateFileContentFromEntries(
+    entries: TransactionEntry[], 
+    effectiveDate: Date,
+    fileType: 'DR' | 'CR'
+  ): string {
+    const lines: string[] = [];
+
+    // File Header Record (Record Type 1)
+    lines.push(this.generateFileHeader(effectiveDate));
+
+    // Batch Header Record (Record Type 5)
+    lines.push(this.generateBatchHeader(effectiveDate, fileType));
+
+    // Entry Detail Records (Record Type 6)
+    entries.forEach(entry => {
+      lines.push(this.generateEntryDetailFromEntry(entry));
+    });
+
+    // Batch Control Record (Record Type 8)
+    lines.push(this.generateBatchControlFromEntries(entries, fileType));
+
+    // File Control Record (Record Type 9)
+    lines.push(this.generateFileControlFromEntries(entries));
 
     // Pad to multiple of 10 records with 9s
     const recordCount = lines.length;
@@ -158,6 +249,28 @@ export class NACHAService {
   }
 
   /**
+   * Generate Entry Detail Record from Transaction Entry (Record Type 6)
+   */
+  private generateEntryDetailFromEntry(entry: TransactionEntry): string {
+    const transactionCode = entry.entryType === 'DR' ? '27' : '22'; // 27 = Checking Debit, 22 = Checking Credit
+    const amount = Math.round(entry.amount * 100); // Convert to cents
+    
+    return [
+      '6',                                          // Record Type Code
+      transactionCode,                              // Transaction Code
+      entry.routingNumber.substring(0, 8),          // Receiving DFI Identification
+      entry.routingNumber.substring(8, 9),          // Check Digit
+      this.padLeft(entry.accountNumber, 17, ' '),   // DFI Account Number
+      this.padLeft(amount.toString(), 10, '0'),     // Amount
+      this.padLeft(entry.accountId, 15, ' '),       // Individual Identification Number
+      this.padRight(entry.accountName, 22, ' '),    // Individual Name
+      this.padRight('', 2, ' '),                    // Discretionary Data
+      '0',                                          // Addenda Record Indicator
+      this.padLeft((this.getTraceNumber()).toString(), 15, '0') // Trace Number
+    ].join('');
+  }
+
+  /**
    * Generate Batch Control Record (Record Type 8)
    */
   private generateBatchControl(transactions: ACHTransaction[], fileType: 'DR' | 'CR'): string {
@@ -170,6 +283,35 @@ export class NACHAService {
     const entryHash = transactions.reduce((sum, tx) => {
       const routingNumber = fileType === 'DR' ? tx.drRoutingNumber : tx.crRoutingNumber;
       return sum + parseInt(routingNumber.substring(0, 8));
+    }, 0);
+    
+    return [
+      '8',                                          // Record Type Code
+      serviceClassCode,                             // Service Class Code
+      this.padLeft(entryCount.toString(), 6, '0'),  // Entry/Addenda Count
+      this.padLeft((entryHash % 10000000000).toString(), 10, '0'), // Entry Hash
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Debit Entry Dollar Amount
+      this.padLeft('0', 12, '0'),                   // Total Credit Entry Dollar Amount
+      this.config.companyId,                        // Company Identification
+      this.padRight('', 19, ' '),                   // Message Authentication Code
+      this.padRight('', 6, ' '),                    // Reserved
+      this.config.originatingDFI.substring(0, 8),  // Originating DFI Identification
+      '0000001'                                     // Batch Number
+    ].join('');
+  }
+
+  /**
+   * Generate Batch Control Record from Transaction Entries (Record Type 8)
+   */
+  private generateBatchControlFromEntries(entries: TransactionEntry[], fileType: 'DR' | 'CR'): string {
+    const serviceClassCode = fileType === 'DR' ? '225' : '220';
+    const entryCount = entries.length;
+    const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalAmountCents = Math.round(totalAmount * 100);
+    
+    // Calculate entry hash (sum of first 8 digits of routing numbers)
+    const entryHash = entries.reduce((sum, entry) => {
+      return sum + parseInt(entry.routingNumber.substring(0, 8));
     }, 0);
     
     return [
@@ -202,6 +344,33 @@ export class NACHAService {
       const drHash = parseInt(tx.drRoutingNumber.substring(0, 8));
       const crHash = parseInt(tx.crRoutingNumber.substring(0, 8));
       return sum + drHash + crHash;
+    }, 0);
+    
+    return [
+      '9',                                          // Record Type Code
+      this.padLeft(batchCount.toString(), 6, '0'),  // Batch Count
+      this.padLeft(blockCount.toString(), 6, '0'),  // Block Count
+      this.padLeft(entryCount.toString(), 8, '0'),  // Entry/Addenda Count
+      this.padLeft((entryHash % 10000000000).toString(), 10, '0'), // Entry Hash
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Debit Entry Dollar Amount
+      this.padLeft(totalAmountCents.toString(), 12, '0'), // Total Credit Entry Dollar Amount
+      this.padRight('', 39, ' ')                    // Reserved
+    ].join('');
+  }
+
+  /**
+   * Generate File Control Record from Transaction Entries (Record Type 9)
+   */
+  private generateFileControlFromEntries(entries: TransactionEntry[]): string {
+    const batchCount = 1;
+    const blockCount = Math.ceil((5 + entries.length) / 10); // 5 = header + batch header + batch control + file control records
+    const entryCount = entries.length;
+    const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalAmountCents = Math.round(totalAmount * 100);
+    
+    // Calculate entry hash (for transaction entries, only use their routing numbers once)
+    const entryHash = entries.reduce((sum, entry) => {
+      return sum + parseInt(entry.routingNumber.substring(0, 8));
     }, 0);
     
     return [
@@ -252,6 +421,93 @@ export class NACHAService {
    */
   private padRight(str: string, length: number, padChar: string): string {
     return str.padEnd(length, padChar).substring(0, length);
+  }
+
+  /**
+   * Decrypt and validate NACHA file content
+   */
+  decryptNACHAFile(encryptedContent: string): { content: string; metadata: any; isValid: boolean } {
+    if (!this.encryptionService) {
+      throw new Error('Encryption service is required for NACHA file decryption');
+    }
+    
+    return this.encryptionService.decryptNACHAFile(encryptedContent);
+  }
+
+  /**
+   * Get plain text content from NACHA file (handles both encrypted and unencrypted)
+   */
+  getNACHAFileContent(content: string): string {
+    // Check if content is encrypted (starts with FILE:)
+    if (content.startsWith('FILE:') && this.encryptionService) {
+      const decrypted = this.decryptNACHAFile(content);
+      return decrypted.content;
+    }
+    
+    // Return as-is if not encrypted
+    return content;
+  }
+
+  /**
+   * Enhanced NACHA file validation with encryption support
+   */
+  validateNACHAFileComplete(content: string): { 
+    isValid: boolean; 
+    errors: string[]; 
+    isEncrypted: boolean; 
+    metadata?: any;
+    integrityValid?: boolean;
+  } {
+    let actualContent = content;
+    let isEncrypted = false;
+    let metadata: any = {};
+    let integrityValid = true;
+
+    // Handle encrypted content
+    if (content.startsWith('FILE:')) {
+      isEncrypted = true;
+      if (!this.encryptionService) {
+        return {
+          isValid: false,
+          errors: ['Encrypted file detected but no encryption service available'],
+          isEncrypted: true
+        };
+      }
+
+      try {
+        const decrypted = this.decryptNACHAFile(content);
+        actualContent = decrypted.content;
+        metadata = decrypted.metadata;
+        integrityValid = decrypted.isValid;
+        
+        if (!integrityValid) {
+          return {
+            isValid: false,
+            errors: ['File integrity check failed - content may be corrupted'],
+            isEncrypted: true,
+            metadata,
+            integrityValid: false
+          };
+        }
+      } catch (error) {
+        return {
+          isValid: false,
+          errors: [`Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+          isEncrypted: true,
+          integrityValid: false
+        };
+      }
+    }
+
+    // Validate NACHA format
+    const validation = this.validateNACHAFile(actualContent);
+    
+    return {
+      ...validation,
+      isEncrypted,
+      metadata,
+      integrityValid
+    };
   }
 
   /**

@@ -15,7 +15,7 @@ export class EncryptionService {
   encrypt(text: string): string {
     try {
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(this.algorithm, this.key);
+      const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
       
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
@@ -39,7 +39,7 @@ export class EncryptionService {
       }
       
       const iv = Buffer.from(ivHex, 'hex');
-      const decipher = crypto.createDecipher(this.algorithm, this.key);
+      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
       
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
@@ -62,5 +62,102 @@ export class EncryptionService {
    */
   generateToken(length: number = 32): string {
     return crypto.randomBytes(length).toString('hex');
+  }
+
+  /**
+   * Encrypt file content with additional metadata
+   */
+  encryptFileContent(content: string, metadata?: Record<string, any>): string {
+    try {
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+      
+      // Create file object with content and metadata
+      const fileData = {
+        content,
+        metadata: metadata || {},
+        timestamp: new Date().toISOString(),
+        version: '1.0'
+      };
+      
+      const fileJson = JSON.stringify(fileData);
+      let encrypted = cipher.update(fileJson, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      
+      // Combine IV and encrypted data with file marker
+      return `FILE:${iv.toString('hex')}:${encrypted}`;
+    } catch (error) {
+      throw new Error(`File encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Decrypt file content and return content with metadata
+   */
+  decryptFileContent(encryptedFileData: string): { content: string; metadata: Record<string, any>; timestamp: string; version: string } {
+    try {
+      if (!encryptedFileData.startsWith('FILE:')) {
+        throw new Error('Invalid encrypted file format');
+      }
+
+      const [, ivHex, encrypted] = encryptedFileData.split(':');
+      
+      if (!ivHex || !encrypted) {
+        throw new Error('Invalid encrypted file data format');
+      }
+      
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      const fileData = JSON.parse(decrypted);
+      
+      if (!fileData.content) {
+        throw new Error('Invalid file data structure');
+      }
+      
+      return {
+        content: fileData.content,
+        metadata: fileData.metadata || {},
+        timestamp: fileData.timestamp,
+        version: fileData.version
+      };
+    } catch (error) {
+      throw new Error(`File decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Encrypt NACHA file content with transaction metadata
+   */
+  encryptNACHAFile(nachaContent: string, transactionIds: string[], effectiveDate: Date): string {
+    const metadata = {
+      type: 'NACHA',
+      transactionIds,
+      effectiveDate: effectiveDate.toISOString(),
+      recordCount: nachaContent.split('\n').length,
+      checksum: this.hash(nachaContent)
+    };
+    
+    return this.encryptFileContent(nachaContent, metadata);
+  }
+
+  /**
+   * Decrypt NACHA file and validate integrity
+   */
+  decryptNACHAFile(encryptedNACHAData: string): { content: string; metadata: any; isValid: boolean } {
+    const decrypted = this.decryptFileContent(encryptedNACHAData);
+    
+    // Validate checksum
+    const expectedChecksum = this.hash(decrypted.content);
+    const isValid = decrypted.metadata.checksum === expectedChecksum;
+    
+    return {
+      content: decrypted.content,
+      metadata: decrypted.metadata,
+      isValid
+    };
   }
 }
