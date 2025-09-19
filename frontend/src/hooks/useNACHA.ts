@@ -51,8 +51,11 @@ export function useGenerateNACHAFile() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { effectiveDate: string; fileType: 'DR' | 'CR' }) => {
+    mutationFn: async (data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<NACHAFile> => {
       const response = await apiClient.generateNACHAFile(data);
+      if (!response.data) {
+        throw new Error('Failed to generate NACHA file');
+      }
       return response.data;
     },
     onSuccess: (newNACHAFile: NACHAFile) => {

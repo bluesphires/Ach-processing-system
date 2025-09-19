@@ -9,7 +9,7 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: queryKeys.currentUser,
     queryFn: async () => {
-      const response = await apiClient.getCurrentUser();
+      const response = await apiClient.getProfile();
       return response.data;
     },
     staleTime: staleTimeConfig.normal,
@@ -25,8 +25,11 @@ export function useLogin() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (credentials: LoginRequest) => {
+    mutationFn: async (credentials: LoginRequest): Promise<AuthResponse> => {
       const response = await apiClient.login(credentials);
+      if (!response.data) {
+        throw new Error('Login failed - no response data');
+      }
       return response.data;
     },
     onSuccess: (data: AuthResponse) => {
@@ -47,8 +50,11 @@ export function useRegister() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (userData: RegisterRequest) => {
+    mutationFn: async (userData: RegisterRequest): Promise<AuthResponse> => {
       const response = await apiClient.register(userData);
+      if (!response.data) {
+        throw new Error('Registration failed - no response data');
+      }
       return response.data;
     },
     onSuccess: (data: AuthResponse) => {
@@ -70,7 +76,8 @@ export function useLogout() {
   
   return useMutation({
     mutationFn: async () => {
-      await apiClient.logout();
+      // Just clear the token locally - no server call needed
+      apiClient.clearToken();
     },
     onSuccess: () => {
       // Clear all cached data
@@ -90,8 +97,13 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (profileData: Partial<User>) => {
-      const response = await apiClient.updateProfile(profileData);
+    mutationFn: async (profileData: Partial<User>): Promise<User> => {
+      await apiClient.updateProfile(profileData);
+      // Fetch updated profile after update
+      const response = await apiClient.getProfile();
+      if (!response.data) {
+        throw new Error('Failed to fetch updated profile');
+      }
       return response.data;
     },
     onSuccess: (updatedUser: User) => {

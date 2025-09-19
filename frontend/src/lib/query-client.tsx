@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
       // Cache time before garbage collection (10 minutes)
       gcTime: 10 * 60 * 1000,
       // Retry failed requests up to 3 times
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: Error & { response?: { status: number } }) => {
         // Don't retry on 401, 403, 404 errors
         if (error?.response?.status && [401, 403, 404].includes(error.response.status)) {
           return false;
@@ -29,7 +29,7 @@ const queryClient = new QueryClient({
     },
     mutations: {
       // Default retry configuration for mutations
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: Error & { response?: { status: number } }) => {
         // Don't retry mutations on client errors (4xx)
         if (error?.response?.status && error.response.status >= 400 && error.response.status < 500) {
           return false;

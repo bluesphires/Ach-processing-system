@@ -20,8 +20,13 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const response = await apiClient.updateTransactionStatus(transaction.id, newStatus);
+    mutationFn: async (newStatus: string): Promise<ACHTransaction> => {
+      await apiClient.updateTransactionStatus(transaction.id, newStatus);
+      // Fetch the updated transaction after status change
+      const response = await apiClient.getTransaction(transaction.id);
+      if (!response.data) {
+        throw new Error('Failed to fetch updated transaction');
+      }
       return response.data;
     },
     
@@ -69,7 +74,7 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
     },
 
     // If the mutation succeeds, clear optimistic state
-    onSuccess: (updatedTransaction) => {
+    onSuccess: (updatedTransaction: ACHTransaction) => {
       setOptimisticStatus(null);
       
       // Update with real data from server
@@ -81,9 +86,9 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
       // Update in lists
       queryClient.setQueriesData<ACHTransaction[]>(
         { queryKey: queryKeys.transactions },
-        (oldData) => {
+        (oldData: ACHTransaction[] | undefined): ACHTransaction[] | undefined => {
           if (oldData) {
-            return oldData.map(tx => 
+            return oldData.map((tx: ACHTransaction) => 
               tx.id === transaction.id ? updatedTransaction : tx
             );
           }
@@ -113,7 +118,7 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
         );
       }
 
-      const message = error?.response?.data?.error || 'Failed to update transaction status';
+      const message = (error as any)?.response?.data?.error || 'Failed to update transaction status';
       toast.error(message);
     },
 
@@ -259,7 +264,7 @@ export function OptimisticBulkActions({
         );
       }
 
-      const message = error?.response?.data?.error || 'Bulk update failed';
+      const message = (error as any)?.response?.data?.error || 'Bulk update failed';
       toast.error(message);
     },
 

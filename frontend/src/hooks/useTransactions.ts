@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { ACHTransaction, CreateTransactionRequest, TransactionStats } from '@/types';
+import { ACHTransaction, CreateTransactionRequest } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // Transaction Queries
