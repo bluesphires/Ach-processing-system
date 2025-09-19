@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS ach_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID NOT NULL REFERENCES organizations(id),
-    trace_number VARCHAR(15) UNIQUE NOT NULL DEFAULT LPAD(FLOOR(random() * 999999999999999)::text, 15, '0'),
+    trace_number VARCHAR(15) UNIQUE NOT NULL,
     -- Debit Information
     dr_routing_number VARCHAR(9) NOT NULL,
     dr_account_number_encrypted TEXT NOT NULL,
