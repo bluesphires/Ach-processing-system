@@ -21,7 +21,7 @@ export function DataPrefetcher({ children }: { children: React.ReactNode }) {
           queryClient.prefetchQuery({
             queryKey: queryKeys.currentUser,
             queryFn: async () => {
-              const response = await apiClient.getCurrentUser();
+              const response = await apiClient.getProfile();
               return response.data;
             },
             staleTime: staleTimeConfig.normal,
@@ -145,11 +145,9 @@ export function SmartPagination({
   totalPages, 
   prefetchFn 
 }: SmartPaginationProps) {
-  const queryClient = useQueryClient();
-
   useEffect(() => {
     // Prefetch next and previous pages
-    const pagesToPrefetch = [];
+    const pagesToPrefetch: number[] = [];
     
     if (currentPage > 1) {
       pagesToPrefetch.push(currentPage - 1);

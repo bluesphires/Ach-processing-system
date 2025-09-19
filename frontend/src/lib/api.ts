@@ -5,9 +5,15 @@ import {
   RegisterRequest, 
   AuthResponse, 
   User, 
+  Organization,
   ACHTransaction, 
+  ACHTransaction,
+  TransactionEntry,
+  TransactionGroup,
   CreateTransactionRequest,
+  CreateSeparateTransactionRequest,
   TransactionStats,
+  TransactionFilters,
   NACHAFile,
   NACHAGenerationStats,
   FederalHoliday,
@@ -80,6 +86,31 @@ class ApiClient {
     return this.token;
   }
 
+  // Organization endpoints
+  async createOrganization(organization: { name: string; description?: string; active?: boolean }): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.post('/api/organizations', organization);
+    return response.data;
+  }
+
+  async getOrganizations(params?: { page?: number; limit?: number }): Promise<ApiResponse<Organization[]>> {
+    const response: AxiosResponse<ApiResponse<Organization[]>> = await this.client.get('/api/organizations', { params });
+    return response.data;
+  }
+
+  async getOrganization(id: string): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.get(`/api/organizations/${id}`);
+    return response.data;
+  }
+
+  async getOrganizationByKey(organizationKey: string): Promise<ApiResponse<Organization>> {
+    const response: AxiosResponse<ApiResponse<Organization>> = await this.client.get(`/api/organizations/key/${organizationKey}`);
+    return response.data;
+  }
+
+  async updateOrganization(id: string, updates: { name?: string; description?: string; active?: boolean }): Promise<ApiResponse> {
+    const response: AxiosResponse<ApiResponse> = await this.client.put(`/api/organizations/${id}`, updates);
+    return response.data;
+  }
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/api/auth/login', credentials);
@@ -112,11 +143,9 @@ class ApiClient {
     return response.data;
   }
 
-  async getTransactions(params?: {
+  async getTransactions(params?: TransactionFilters & {
     page?: number;
     limit?: number;
-    status?: string;
-    effectiveDate?: string;
   }): Promise<ApiResponse<ACHTransaction[]>> {
     const response: AxiosResponse<ApiResponse<ACHTransaction[]>> = await this.client.get('/api/transactions', { params });
     return response.data;
@@ -137,9 +166,39 @@ class ApiClient {
     return response.data;
   }
 
+  // Transaction Entry endpoints (new separate debit/credit structure)
+  async createSeparateTransaction(transaction: CreateSeparateTransactionRequest): Promise<ApiResponse<TransactionGroup>> {
+    const response: AxiosResponse<ApiResponse<TransactionGroup>> = await this.client.post('/api/transactions/separate', transaction);
+    return response.data;
+  }
+
+  async getTransactionEntries(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    effectiveDate?: string;
+    entryType?: 'DR' | 'CR';
+  }): Promise<ApiResponse<TransactionEntry[]>> {
+    const response: AxiosResponse<ApiResponse<TransactionEntry[]>> = await this.client.get('/api/transactions/entries', { params });
+    return response.data;
+  }
+
+  async getTransactionGroups(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<TransactionGroup[]>> {
+    const response: AxiosResponse<ApiResponse<TransactionGroup[]>> = await this.client.get('/api/transactions/groups', { params });
+    return response.data;
+  }
+
   // NACHA endpoints
   async generateNACHAFile(data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<ApiResponse<NACHAFile>> {
     const response: AxiosResponse<ApiResponse<NACHAFile>> = await this.client.post('/api/nacha/generate', data);
+    return response.data;
+  }
+
+  async generateNACHAFileFromEntries(data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<ApiResponse<NACHAFile>> {
+    const response: AxiosResponse<ApiResponse<NACHAFile>> = await this.client.post('/api/nacha/generate-from-entries', data);
     return response.data;
   }
 

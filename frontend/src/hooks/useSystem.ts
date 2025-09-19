@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { SystemConfig, SFTPSettings, ACHSettings, FederalHoliday, BusinessDayInfo } from '@/types';
+import { SystemConfig, SFTPSettings, ACHSettings, FederalHoliday } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // System Configuration Queries
@@ -75,8 +75,11 @@ export function useUpdateSystemConfig() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ key, value, description }: { key: string; value: string; description?: string }) => {
+    mutationFn: async ({ key, value, description }: { key: string; value: string; description?: string }): Promise<SystemConfig> => {
       const response = await apiClient.setSystemConfig(key, value, description);
+      if (!response.data) {
+        throw new Error('Failed to set system configuration');
+      }
       return response.data;
     },
     onSuccess: (updatedConfig: SystemConfig, variables) => {
@@ -157,8 +160,11 @@ export function useCreateFederalHoliday() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (holiday: Omit<FederalHoliday, 'id'>) => {
+    mutationFn: async (holiday: Omit<FederalHoliday, 'id'>): Promise<FederalHoliday> => {
       const response = await apiClient.createFederalHoliday(holiday);
+      if (!response.data) {
+        throw new Error('Failed to create federal holiday');
+      }
       return response.data;
     },
     onSuccess: (newHoliday: FederalHoliday) => {
