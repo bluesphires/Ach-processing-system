@@ -71,6 +71,9 @@ export class BusinessDayService {
    * Get the next business day from a given date
    */
   getNextBusinessDay(date: Date): Date {
+    if (this.isBusinessDay(date)) {
+      return date;
+    }
     return this.addBusinessDays(date, 1);
   }
 
@@ -82,12 +85,26 @@ export class BusinessDayService {
   }
 
   /**
-   * Calculate business days between two dates
+   * Calculate business days between two dates (inclusive)
    */
   getBusinessDaysBetween(startDate: Date, endDate: Date): number {
     const start = moment(startDate);
     const end = moment(endDate);
-    return start.businessDiff(end);
+    
+    // Ensure start is before end
+    const [earlier, later] = start.isBefore(end) ? [start, end] : [end, start];
+    
+    let count = 0;
+    const current = earlier.clone();
+    
+    while (current.isSameOrBefore(later, 'day')) {
+      if (this.isBusinessDay(current.toDate())) {
+        count++;
+      }
+      current.add(1, 'day');
+    }
+    
+    return count;
   }
 
   /**
@@ -105,6 +122,33 @@ export class BusinessDayService {
    */
   getCreditEffectiveDate(debitEffectiveDate: Date): Date {
     return this.addBusinessDays(debitEffectiveDate, 2);
+  }
+
+  /**
+   * Get the ACH release date for NACHA file generation
+   * ACH files should be released one business day prior to their effective date
+   * Returns the effective date that should be processed for release today
+   */
+  getACHReleaseEffectiveDate(releaseDate: Date = new Date()): Date {
+    // If release date is not a business day, move to next business day first
+    const actualReleaseDate = this.isBusinessDay(releaseDate) ? releaseDate : this.getNextBusinessDay(releaseDate);
+    
+    // Return the next business day which is the effective date for transactions to be released today
+    return this.addBusinessDays(actualReleaseDate, 1);
+   * Check if a date is valid for ACH effective date (must be business day)
+   */
+  isValidEffectiveDate(date: Date): boolean {
+    return this.isBusinessDay(date);
+  }
+
+  /**
+   * Get next valid effective date (next business day if given date is not valid)
+   */
+  getNextValidEffectiveDate(date: Date): Date {
+    if (this.isValidEffectiveDate(date)) {
+      return date;
+    }
+    return this.getNextBusinessDay(date);
   }
 
   /**

@@ -170,7 +170,155 @@ All API responses follow a consistent format to ensure predictable integration:
 
 ### Transaction Management
 
+
 The transaction endpoints are the heart of the ACH processing system, allowing you to create, monitor, and manage ACH transactions.
+Create a new ACH transaction (legacy format with single effective date).
+
+**Request Body:**
+```json
+{
+  "drRoutingNumber": "123456789",
+  "drAccountNumber": "1234567890",
+  "drId": "ACCT123",
+  "drName": "John Doe",
+  "crRoutingNumber": "987654321",
+  "crAccountNumber": "0987654321",
+  "crId": "ACCT456", 
+  "crName": "Jane Smith",
+  "amount": 1500.00,
+  "effectiveDate": "2024-01-15",
+  "senderDetails": "Payment for services"
+}
+```
+
+### POST /api/transactions/separate
+
+Create a new transaction with separate debit and credit entries (NEW).
+
+**Request Body:**
+```json
+{
+  "drRoutingNumber": "123456789",
+  "drAccountNumber": "1234567890",
+  "drId": "ACCT123",
+  "drName": "John Doe",
+  "drEffectiveDate": "2024-01-15",
+  "crRoutingNumber": "987654321",
+  "crAccountNumber": "0987654321",
+  "crId": "ACCT456",
+  "crName": "Jane Smith", 
+  "crEffectiveDate": "2024-01-17",
+  "amount": 1500.00,
+  "senderDetails": "Payment for services"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "group-uuid",
+    "drEntryId": "dr-entry-uuid",
+    "crEntryId": "cr-entry-uuid",
+    "amount": 1500.00,
+    "drEffectiveDate": "2024-01-15",
+    "crEffectiveDate": "2024-01-17",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  "message": "Separate debit/credit transaction created successfully"
+}
+```
+
+### GET /api/transactions
+
+List transactions with pagination and filtering (legacy format).
+
+### GET /api/transactions/entries
+
+List individual transaction entries with pagination and filtering (NEW).
+
+**Query Parameters:**
+- `page` (number): Page number (default: 1)
+- `limit` (number): Items per page (default: 20, max: 100)
+- `status` (string): Filter by status (pending, processed, failed, cancelled)
+- `effectiveDate` (string): Filter by effective date (YYYY-MM-DD)
+- `entryType` (string): Filter by entry type (DR, CR)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "entry-uuid",
+      "parentTransactionId": "parent-uuid",
+      "entryType": "DR",
+      "routingNumber": "123456789",
+      "accountNumber": "****7890",
+      "accountId": "ACCT123",
+      "accountName": "John Doe",
+      "amount": 1500.00,
+      "effectiveDate": "2024-01-15",
+      "status": "pending",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+### GET /api/transactions/groups
+
+List transaction groups (linked debit/credit pairs) (NEW).
+
+**Query Parameters:**
+- `page` (number): Page number (default: 1)
+- `limit` (number): Items per page (default: 20, max: 100)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "group-uuid",
+      "drEntryId": "dr-entry-uuid",
+      "crEntryId": "cr-entry-uuid",
+      "drEntry": {
+        "id": "dr-entry-uuid",
+        "entryType": "DR",
+        "accountName": "John Doe",
+        "amount": 1500.00,
+        "effectiveDate": "2024-01-15",
+        "status": "pending"
+      },
+      "crEntry": {
+        "id": "cr-entry-uuid", 
+        "entryType": "CR",
+        "accountName": "Jane Smith",
+        "amount": 1500.00,
+        "effectiveDate": "2024-01-17",
+        "status": "pending"
+      },
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 50,
+    "totalPages": 3
+  }
+}
+```
+
+Create new ACH transaction.
 
 #### Create Transaction
 
@@ -377,6 +525,7 @@ Get aggregate statistics for transactions.
 NACHA (National Automated Clearing House Association) files are the standard format for transmitting ACH transactions to financial institutions. These endpoints help you generate, validate, and manage ACH files.
 
 #### Generate NACHA File
+Generate NACHA file from transactions (legacy format).
 
 **Endpoint**: `POST /api/nacha/generate`
 
@@ -410,6 +559,36 @@ Generate a NACHA-compliant file from pending transactions for a specific effecti
     "createdAt": "2023-01-01T00:00:00.000Z"
   },
   "message": "NACHA file generated successfully"
+  "message": "NACHA DR file generated successfully"
+}
+```
+
+### POST /api/nacha/generate-from-entries
+
+Generate NACHA file from transaction entries (NEW - supports separate effective dates).
+
+**Request Body:**
+```json
+{
+  "effectiveDate": "2023-12-15",
+  "fileType": "DR"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "filename": "ACH_DR_20231215_143022.txt",
+    "effectiveDate": "2023-12-15",
+    "transactionCount": 15,
+    "totalAmount": 22500.00,
+    "createdAt": "2023-01-01T00:00:00.000Z"
+  },
+  "message": "NACHA DR file generated successfully from transaction entries"
+  }
 }
 ```
 

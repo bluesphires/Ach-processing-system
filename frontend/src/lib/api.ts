@@ -5,8 +5,11 @@ import {
   RegisterRequest, 
   AuthResponse, 
   User, 
-  ACHTransaction, 
+  ACHTransaction,
+  TransactionEntry,
+  TransactionGroup,
   CreateTransactionRequest,
+  CreateSeparateTransactionRequest,
   TransactionStats,
   NACHAFile,
   NACHAGenerationStats,
@@ -137,9 +140,39 @@ class ApiClient {
     return response.data;
   }
 
+  // Transaction Entry endpoints (new separate debit/credit structure)
+  async createSeparateTransaction(transaction: CreateSeparateTransactionRequest): Promise<ApiResponse<TransactionGroup>> {
+    const response: AxiosResponse<ApiResponse<TransactionGroup>> = await this.client.post('/api/transactions/separate', transaction);
+    return response.data;
+  }
+
+  async getTransactionEntries(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    effectiveDate?: string;
+    entryType?: 'DR' | 'CR';
+  }): Promise<ApiResponse<TransactionEntry[]>> {
+    const response: AxiosResponse<ApiResponse<TransactionEntry[]>> = await this.client.get('/api/transactions/entries', { params });
+    return response.data;
+  }
+
+  async getTransactionGroups(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<TransactionGroup[]>> {
+    const response: AxiosResponse<ApiResponse<TransactionGroup[]>> = await this.client.get('/api/transactions/groups', { params });
+    return response.data;
+  }
+
   // NACHA endpoints
   async generateNACHAFile(data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<ApiResponse<NACHAFile>> {
     const response: AxiosResponse<ApiResponse<NACHAFile>> = await this.client.post('/api/nacha/generate', data);
+    return response.data;
+  }
+
+  async generateNACHAFileFromEntries(data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<ApiResponse<NACHAFile>> {
+    const response: AxiosResponse<ApiResponse<NACHAFile>> = await this.client.post('/api/nacha/generate-from-entries', data);
     return response.data;
   }
 
