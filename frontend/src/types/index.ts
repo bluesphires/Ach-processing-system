@@ -1,3 +1,39 @@
+// Individual transaction entry (either debit or credit)
+export interface TransactionEntry {
+  id: string;
+  parentTransactionId: string;
+  entryType: 'DR' | 'CR';
+  // Account Information
+  routingNumber: string;
+  accountNumber: string; // This will be masked on the frontend
+  accountId: string;
+  accountName: string;
+  // Transaction Details
+  amount: number;
+  effectiveDate: string;
+  // Metadata
+  senderIp?: string;
+  senderDetails?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: TransactionStatus;
+}
+
+// Transaction group representing the relationship between debit and credit entries
+export interface TransactionGroup {
+  id: string;
+  drEntryId: string;
+  crEntryId: string;
+  drEntry?: TransactionEntry;
+  crEntry?: TransactionEntry;
+  // Metadata
+  senderIp?: string;
+  senderDetails?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Legacy ACH Transaction interface (kept for backward compatibility)
 export interface User {
   id: string;
   email: string;
@@ -222,6 +258,7 @@ export interface AuthResponse {
   token: string;
 }
 
+// Legacy create transaction request (kept for backward compatibility)
 export interface CreateTransactionRequest {
   drRoutingNumber: string;
   drAccountNumber: string;
@@ -233,6 +270,26 @@ export interface CreateTransactionRequest {
   crName: string;
   amount: number;
   effectiveDate: string;
+  senderDetails?: string;
+}
+
+// Request to create a new transaction with separate DR and CR effective dates
+export interface CreateSeparateTransactionRequest {
+  // Debit Information
+  drRoutingNumber: string;
+  drAccountNumber: string;
+  drId: string;
+  drName: string;
+  drEffectiveDate: string;
+  // Credit Information
+  crRoutingNumber: string;
+  crAccountNumber: string;
+  crId: string;
+  crName: string;
+  crEffectiveDate: string;
+  // Transaction Details
+  amount: number;
+  // Metadata
   senderDetails?: string;
 }
 
