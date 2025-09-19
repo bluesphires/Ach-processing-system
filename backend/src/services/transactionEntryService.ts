@@ -68,17 +68,17 @@ export class TransactionEntryService {
     };
 
     // Encrypt sensitive account numbers
+    const { accountNumber: drAccountNumber, ...debitEntryRest } = debitEntry;
     const encryptedDebitEntry: EncryptedTransactionEntry = {
-      ...debitEntry,
-      accountNumberEncrypted: this.encryptionService.encrypt(debitEntry.accountNumber)
+      ...debitEntryRest,
+      accountNumberEncrypted: this.encryptionService.encrypt(drAccountNumber)
     };
-    delete (encryptedDebitEntry as any).accountNumber;
 
+    const { accountNumber: crAccountNumber, ...creditEntryRest } = creditEntry;
     const encryptedCreditEntry: EncryptedTransactionEntry = {
-      ...creditEntry,
-      accountNumberEncrypted: this.encryptionService.encrypt(creditEntry.accountNumber)
+      ...creditEntryRest,
+      accountNumberEncrypted: this.encryptionService.encrypt(crAccountNumber)
     };
-    delete (encryptedCreditEntry as any).accountNumber;
 
     // Save entries to database
     const savedDebitEntry = await this.databaseService.createTransactionEntry(encryptedDebitEntry);
