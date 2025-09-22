@@ -65,8 +65,15 @@ router.post('/generate', requireInternal, async (req, res) => {
       
       return {
         ...tx,
+        accountNumber: drAccountNumber, // Use DR account as primary
         drAccountNumber,
-        crAccountNumber
+        crAccountNumber,
+        drName: tx.drName,
+        crName: tx.crName,
+        drId: tx.drId,
+        crId: tx.crId,
+        drRoutingNumber: tx.drRoutingNumber,
+        crRoutingNumber: tx.crRoutingNumber
       } as ACHTransaction;
     });
 
@@ -79,11 +86,20 @@ router.post('/generate', requireInternal, async (req, res) => {
 
     // Save NACHA file to database
     const savedNachaFile = await databaseService.createNACHAFile({
+      organizationId: 'default-org', // TODO: Get from request context
       filename: nachaFile.filename,
       content: nachaFile.content,
       effectiveDate: nachaFile.effectiveDate,
       transactionCount: nachaFile.transactionCount,
       totalAmount: nachaFile.totalAmount,
+      totalRecords: nachaFile.transactionCount,
+      totalDebits: fileType === 'DR' ? nachaFile.transactionCount : 0,
+      totalCredits: fileType === 'CR' ? nachaFile.transactionCount : 0,
+      status: 'generated',
+      generatedAt: new Date(),
+      filePath: `/nacha/${nachaFile.filename}`,
+      transactionIds: decryptedTransactions.map(tx => tx.id),
+      createdBy: req.user?.userId || 'system',
       transmitted: false
     });
 
@@ -176,11 +192,20 @@ router.post('/generate-from-entries', requireOperator, async (req, res) => {
 
     // Save NACHA file to database
     const savedNachaFile = await databaseService.createNACHAFile({
+      organizationId: 'default-org', // TODO: Get from request context
       filename: nachaFile.filename,
       content: nachaFile.content,
       effectiveDate: nachaFile.effectiveDate,
       transactionCount: nachaFile.transactionCount,
       totalAmount: nachaFile.totalAmount,
+      totalRecords: nachaFile.transactionCount,
+      totalDebits: fileType === 'DR' ? nachaFile.transactionCount : 0,
+      totalCredits: fileType === 'CR' ? nachaFile.transactionCount : 0,
+      status: 'generated',
+      generatedAt: new Date(),
+      filePath: `/nacha/${nachaFile.filename}`,
+      transactionIds: transactionEntries.map(entry => entry.id),
+      createdBy: req.user?.userId || 'system',
       transmitted: false
     });
 
@@ -273,8 +298,15 @@ router.post('/generate/daily', requireOperator, async (req, res) => {
       
       return {
         ...tx,
+        accountNumber: drAccountNumber, // Use DR account as primary
         drAccountNumber,
-        crAccountNumber
+        crAccountNumber,
+        drName: tx.drName,
+        crName: tx.crName,
+        drId: tx.drId,
+        crId: tx.crId,
+        drRoutingNumber: tx.drRoutingNumber,
+        crRoutingNumber: tx.crRoutingNumber
       } as ACHTransaction;
     });
 
@@ -287,11 +319,20 @@ router.post('/generate/daily', requireOperator, async (req, res) => {
 
     // Save NACHA file to database
     const savedNachaFile = await databaseService.createNACHAFile({
+      organizationId: 'default-org', // TODO: Get from request context
       filename: nachaFile.filename,
       content: nachaFile.content,
       effectiveDate: nachaFile.effectiveDate,
       transactionCount: nachaFile.transactionCount,
       totalAmount: nachaFile.totalAmount,
+      totalRecords: nachaFile.transactionCount,
+      totalDebits: fileType === 'DR' ? nachaFile.transactionCount : 0,
+      totalCredits: fileType === 'CR' ? nachaFile.transactionCount : 0,
+      status: 'generated',
+      generatedAt: new Date(),
+      filePath: `/nacha/${nachaFile.filename}`,
+      transactionIds: decryptedTransactions.map(tx => tx.id),
+      createdBy: req.user?.userId || 'system',
       transmitted: false
     });
 

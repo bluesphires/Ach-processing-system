@@ -1,18 +1,11 @@
 {
   "name": "ach-processing-backend",
   "version": "1.0.0",
-
-  "description": "Backend API for ACH processing system",
-  "main": "dist/index.js",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-
   "description": "ACH Processing System Backend API",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "(tsc --noEmitOnError false || true) && tsc-alias",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -21,67 +14,47 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.4",
-    "@supabase/supabase-js": "^2.38.0",
     "bcryptjs": "^2.4.3",
-    "express": "^4.18.2",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
+    "crypto-js": "^4.2.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
-    "joi": "^17.11.0",
-    "winston": "^3.11.0",
-    "crypto-js": "^4.2.0",
-    "ssh2-sftp-client": "^10.0.3",
-    "node-cron": "^3.0.3",
-    "moment": "^2.29.4",
-    "dotenv": "^16.3.1",
-    "crypto": "^1.0.1",
-    "node-ssh": "^13.1.0",
-    "ssh2-sftp-client": "^10.0.3",
     "moment": "^2.29.4",
     "moment-business-days": "^1.2.0",
     "morgan": "^1.10.0",
+    "node-cron": "^3.0.3",
     "node-ssh": "^13.1.0",
     "ssh2-sftp-client": "^10.0.3",
     "tsconfig-paths": "^4.2.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
+    "@types/crypto-js": "^4.2.1",
     "@types/express": "^4.17.21",
-    "@types/jest": "^29.5.5",
+    "@types/jest": "^29.5.8",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^20.8.0",
-    "@types/crypto-js": "^4.2.1",
-    "@types/uuid": "^9.0.7",
     "@types/node": "^20.9.0",
-    "@types/jest": "^29.5.8",
+    "@types/ssh2-sftp-client": "^9.0.5",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "eslint": "^8.54.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.1",
-    "tsx": "^4.6.0",
-    "typescript": "^5.3.2"
-    "@types/node": "^20.8.0",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^20.8.0",
-    "@types/supertest": "^6.0.3",
-    "@types/uuid": "^9.0.6",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "@typescript-eslint/parser": "^6.7.4",
-    "eslint": "^8.50.0",
     "jest": "^29.7.0",
     "supertest": "^7.1.4",
     "ts-jest": "^29.1.1",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.16",
-    "typescript": "^5.2.2"
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.2"
   },
   "jest": {
     "preset": "ts-jest",
@@ -96,6 +69,5 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
     }
-    ]
   }
 }

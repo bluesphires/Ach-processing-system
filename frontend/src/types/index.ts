@@ -1,44 +1,23 @@
-// Individual transaction entry (either debit or credit)
-export interface TransactionEntry {
-  id: string;
-  parentTransactionId: string;
-  entryType: 'DR' | 'CR';
-  // Account Information
-  routingNumber: string;
-  accountNumber: string; // This will be masked on the frontend
-  accountId: string;
-  accountName: string;
-  // Transaction Details
-  amount: number;
-  effectiveDate: string;
-  // Metadata
-  senderIp?: string;
-  senderDetails?: string;
-  createdAt: string;
-  updatedAt: string;
-  status: TransactionStatus;
+export enum TransactionStatus {
+  PENDING = 'pending',
+  PROCESSED = 'processed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled'
 }
 
-// Transaction group representing the relationship between debit and credit entries
-export interface TransactionGroup {
-  id: string;
-  drEntryId: string;
-  crEntryId: string;
-  drEntry?: TransactionEntry;
-  crEntry?: TransactionEntry;
-  // Metadata
-  senderIp?: string;
-  senderDetails?: string;
-  createdAt: string;
-  updatedAt: string;
+export enum UserRole {
+  ADMIN = 'admin',
+  OPERATOR = 'operator',
+  VIEWER = 'viewer',
+  ORGANIZATION = 'organization'
 }
 
-// Legacy ACH Transaction interface (kept for backward compatibility)
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  name: string;
   role: UserRole;
   isActive: boolean;
   lastLogin?: Date;
@@ -46,7 +25,34 @@ export interface User {
   updatedAt: Date;
 }
 
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export interface TransactionEntry {
+  id: string;
+  parentTransactionId: string;
+  entryType: 'DR' | 'CR';
+  routingNumber: string;
+  accountNumber: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  effectiveDate: string;
+  senderIp?: string;
+  senderDetails?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: TransactionStatus;
+}
+
+export interface TransactionGroup {
+  id: string;
+  drEntryId: string;
+  crEntryId: string;
+  drEntry?: TransactionEntry;
+  crEntry?: TransactionEntry;
+  senderIp?: string;
+  senderDetails?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface ACHTransaction {
   id: string;
@@ -56,20 +62,44 @@ export interface ACHTransaction {
   accountType: 'checking' | 'savings';
   transactionType: 'debit' | 'credit';
   amount: number;
-  effectiveDate: Date;
+  effectiveDate: string;
   description: string;
   individualId: string;
   individualName: string;
-  companyName?: string;
-  companyId?: string;
-  senderIp: string;
-  timestamp: Date;
-  status: 'pending' | 'processed' | 'failed' | 'cancelled';
-  processedAt?: Date;
-  nachaFileId?: string;
+  organizationId: string;
+  traceNumber: string;
+  status: TransactionStatus;
+  createdAt: string;
+  updatedAt: string;
   createdBy: string;
-  updatedBy?: string;
-// Types shared between frontend and backend
+  updatedBy: string;
+  // Debit Information
+  drName: string;
+  drId: string;
+  drAccountNumber: string;
+  drRoutingNumber: string;
+  // Credit Information
+  crName: string;
+  crId: string;
+  crAccountNumber: string;
+  crRoutingNumber: string;
+}
+
+export interface NACHAFile {
+  id: string;
+  organizationId: string;
+  filename: string;
+  content: string;
+  effectiveDate: string;
+  transactionCount: number;
+  totalAmount: number;
+  status: 'pending' | 'generated' | 'transmitted' | 'failed';
+  createdAt: string;
+  transmitted: boolean;
+  transmittedAt?: string;
+  createdBy: string;
+}
+
 export interface Organization {
   id: string;
   organizationKey: string;
@@ -80,121 +110,7 @@ export interface Organization {
   updatedAt: string;
 }
 
-export interface ACHTransaction {
-  id: string;
-  organizationId: string;
-  traceNumber: string;
-  // Debit Information
-  drRoutingNumber: string;
-  drAccountNumber: string; // This will be masked on the frontend
-  drId: string;
-  drName: string;
-  // Credit Information
-  crRoutingNumber: string;
-  crAccountNumber: string; // This will be masked on the frontend
-  crId: string;
-  crName: string;
-  // Transaction Details
-  amount: number;
-  effectiveDate: string;
-  // Metadata
-  senderIp?: string;
-  senderDetails?: string;
-  createdAt: string;
-  updatedAt: string;
-  status: TransactionStatus;
-}
-
-export enum TransactionStatus {
-  PENDING = 'pending',
-  PROCESSED = 'processed',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled'
-}
-
-export interface NACHAFile {
-  id: string;
-  organizationId: string;
-  filename: string;
-  effectiveDate: Date;
-  totalRecords: number;
-  totalDebits: number;
-  totalCredits: number;
-  status: 'generated' | 'transmitted' | 'failed';
-  generatedAt: Date;
-  transmittedAt?: Date;
-  filePath: string;
-  transactionIds: string[];
-  createdBy: string;
-
-  content?: string;
-  effectiveDate: string;
-  transactionCount: number;
-  totalAmount: number;
-  createdAt: string;
-  transmitted: boolean;
-  transmittedAt?: string;
-}
-
-export interface FederalHoliday {
-  id: string;
-  name: string;
-  date: string;
-  year: number;
-  recurring: boolean;
-}
-
-export interface SystemConfig {
-  id: string;
-  key: string;
-  value: any;
-  description?: string;
-  isEncrypted: boolean;
-  updatedBy: string;
-  updatedAt: Date;
-}
-
-export interface FederalHoliday {
-  id: string;
-  name: string;
-  date: Date;
-  isRecurring: boolean;
-  createdAt: Date;
-}
-
-export interface APIResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-export interface PaginatedResponse<T> extends APIResponse<T[]> {
-  pagination: {
-  value: string;
-  description?: string;
-  updatedAt: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  organizationId?: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export enum UserRole {
-  ADMIN = 'admin',
-  OPERATOR = 'operator',
-  VIEWER = 'viewer',
-  ORGANIZATION = 'organization'
-}
-
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   message?: string;
@@ -207,154 +123,40 @@ export interface ApiResponse<T = unknown> {
   };
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-export interface LoginResponse {
-  token: string;
-  user: User;
-}
-
-export interface CreateTransactionRequest {
-  transactionId: string;
-  routingNumber: string;
-  accountNumber: string;
-  accountType: 'checking' | 'savings';
-  transactionType: 'debit' | 'credit';
-  amount: number;
-  effectiveDate: string;
-  description: string;
-  individualId: string;
-  individualName: string;
-  companyName?: string;
-  companyId?: string;
-}
-
-export interface TransactionFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-export interface DailySummary {
-  date: string;
-  totalTransactions: number;
-  totalAmount: number;
-  debitCount: number;
-  creditCount: number;
-  debitAmount: number;
-  creditAmount: number;
-  pendingCount: number;
-  processedCount: number;
-  failedCount: number;
-}
-
-export interface SFTPConfig {
-  host: string;
-  port: number;
-  username: string;
-  password?: string;
-  privateKey?: string;
-  remotePath: string;
-  enabled: boolean;
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name: string;
-  role?: UserRole;
-}
-
-export interface AuthResponse {
-  user: User;
-  token: string;
-}
-
-// Legacy create transaction request (kept for backward compatibility)
-export interface CreateTransactionRequest {
-  organizationKey: string;
-  drRoutingNumber: string;
-  drAccountNumber: string;
-  drId: string;
-  drName: string;
-  crRoutingNumber: string;
-  crAccountNumber: string;
-  crId: string;
-  crName: string;
-  amount: number;
-  effectiveDate: string;
-  senderDetails?: string;
-}
-
-// Request to create a new transaction with separate DR and CR effective dates
 export interface CreateSeparateTransactionRequest {
-  // Debit Information
   drRoutingNumber: string;
   drAccountNumber: string;
   drId: string;
   drName: string;
   drEffectiveDate: string;
-  // Credit Information
   crRoutingNumber: string;
   crAccountNumber: string;
   crId: string;
   crName: string;
   crEffectiveDate: string;
-  // Transaction Details
   amount: number;
-  // Metadata
+  effectiveDate: string;
+  description: string;
+  organizationKey: string;
+  senderIp?: string;
   senderDetails?: string;
 }
 
-export interface TransactionStats {
-  totalTransactions: number;
-  pendingTransactions: number;
-  processedTransactions: number;
-  failedTransactions: number;
-  totalAmount: number;
-  averageAmount: number;
-}
-
-export interface NACHAGenerationStats {
-  totalFiles: number;
-  transmittedFiles: number;
-  pendingFiles: number;
-  totalTransactionCount: number;
-  totalAmount: number;
-  averageFileSize: number;
-}
-
-export interface SFTPSettings {
-  host: string;
-  port: string;
-  username: string;
-  password: string;
-  privateKeyPath: string;
-}
-
-export interface ACHSettings {
-  immediateDestination: string;
-  immediateOrigin: string;
-  companyName: string;
-  companyId: string;
-  companyDiscretionaryData: string;
-}
-
-export interface BusinessDayInfo {
-  date: string;
-  isBusinessDay: boolean;
-  isHoliday: boolean;
-  isWeekend: boolean;
-  dayOfWeek: string;
-}
-
 export interface TransactionFilters {
-  status?: string;
+  status?: TransactionStatus;
   effectiveDate?: string;
-  organizationKey?: string;
+  organizationId?: string;
   amountMin?: number;
   amountMax?: number;
   traceNumber?: string;
@@ -362,4 +164,143 @@ export interface TransactionFilters {
   crId?: string;
   dateFrom?: string;
   dateTo?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role?: UserRole;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  data?: {
+    token: string;
+    user: User;
+  };
+  message?: string;
+  error?: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  data?: {
+    user: User;
+    token: string;
+  };
+  message?: string;
+  error?: string;
+}
+
+export interface APIResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
+export interface CreateTransactionRequest {
+  drRoutingNumber: string;
+  drAccountNumber: string;
+  drId: string;
+  drName: string;
+  crRoutingNumber: string;
+  crAccountNumber: string;
+  crId: string;
+  crName: string;
+  amount: number;
+  effectiveDate: string;
+  description: string;
+  organizationKey: string;
+  senderIp?: string;
+  senderDetails?: string;
+}
+
+export interface DailySummary {
+  date: string;
+  totalTransactions: number;
+  totalAmount: number;
+  successfulTransactions: number;
+  failedTransactions: number;
+}
+
+export interface TransactionStats {
+  totalTransactions: number;
+  totalAmount: number;
+  pendingTransactions: number;
+  processedTransactions: number;
+  failedTransactions: number;
+  cancelledTransactions: number;
+}
+
+export interface NACHAGenerationStats {
+  totalFiles: number;
+  totalTransactions: number;
+  totalAmount: number;
+  lastGenerated?: string;
+}
+
+export interface BusinessDayInfo {
+  date: string;
+  isBusinessDay: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
+  nextBusinessDay?: string;
+}
+
+export interface SystemConfig {
+  id: string;
+  key: string;
+  value: string;
+  description?: string;
+  isEncrypted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Federal holiday interface
+export interface FederalHoliday {
+  id: string;
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// SFTP configuration interface
+export interface SFTPConfig {
+  id: string;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+  remotePath: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ACH settings interface
+export interface ACHSettings {
+  immediateOrigin: string;
+  immediateDestination: string;
+  companyName: string;
+  companyId: string;
+  companyDiscretionaryData?: string;
+  companyEntryDescription: string;
+  companyDescriptiveDate?: string;
+  effectiveEntryDate?: string;
+  settlementDate?: string;
+  originatorStatusCode: string;
+  originatingDFIId: string;
+  batchNumber: number;
 }

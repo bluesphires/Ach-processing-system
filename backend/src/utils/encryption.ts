@@ -7,7 +7,7 @@ if (!ENCRYPTION_KEY) {
 }
 
 export class EncryptionService {
-  private static readonly key = ENCRYPTION_KEY;
+  private static readonly key: string = ENCRYPTION_KEY as string;
 
   static encrypt(text: string): string {
     try {

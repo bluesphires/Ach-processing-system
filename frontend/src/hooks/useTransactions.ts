@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { ACHTransaction, CreateTransactionRequest } from '@/types';
+import { ACHTransaction, CreateTransactionRequest, TransactionStatus } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // Transaction Queries
 export function useTransactions(params?: {
   page?: number;
   limit?: number;
-  status?: string;
+  status?: TransactionStatus;
   effectiveDate?: string;
 }) {
   return useQuery({
@@ -52,8 +52,11 @@ export function useCreateTransaction() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (transactionData: CreateTransactionRequest) => {
+    mutationFn: async (transactionData: CreateTransactionRequest): Promise<ACHTransaction> => {
       const response = await apiClient.createTransaction(transactionData);
+      if (!response.data) {
+        throw new Error('Failed to create transaction');
+      }
       return response.data;
     },
     onSuccess: (newTransaction: ACHTransaction) => {
@@ -86,7 +89,7 @@ export function useUpdateTransactionStatus() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: TransactionStatus }) => {
       const response = await apiClient.updateTransactionStatus(id, status);
       return response.data;
     },
@@ -127,7 +130,7 @@ export function useBulkUpdateTransactions() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+    mutationFn: async ({ ids, status }: { ids: string[]; status: TransactionStatus }) => {
       // Execute bulk update (assuming API supports it, otherwise loop)
       const promises = ids.map(id => apiClient.updateTransactionStatus(id, status));
       const results = await Promise.all(promises);
@@ -151,7 +154,7 @@ export function useBulkUpdateTransactions() {
 export function usePrefetchTransactions() {
   const queryClient = useQueryClient();
   
-  return (params: { page: number; limit?: number; status?: string; effectiveDate?: string }) => {
+  return (params: { page: number; limit?: number; status?: TransactionStatus; effectiveDate?: string }) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.transactionsList(params),
       queryFn: async () => {

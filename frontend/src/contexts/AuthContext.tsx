@@ -100,11 +100,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await apiClient.login({ email, password });
       
-      if (response.success && response.data) {
-        apiClient.setToken(response.data.token);
+      if (response.success && response.data && response.data.data) {
+        apiClient.setToken(response.data.data.token);
         dispatch({
           type: 'SET_USER',
-          payload: { user: response.data.user, token: response.data.token },
+          payload: { user: response.data.data.user, token: response.data.data.token },
         });
         return { success: true };
       } else {
@@ -124,13 +124,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await apiClient.register({ email, password, name });
+      // Split name into firstName and lastName
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      const response = await apiClient.register({ email, password, firstName, lastName });
       
-      if (response.success && response.data) {
-        apiClient.setToken(response.data.token);
+      if (response.success && response.data && response.data.data) {
+        apiClient.setToken(response.data.data.token);
         dispatch({
           type: 'SET_USER',
-          payload: { user: response.data.user, token: response.data.token },
+          payload: { user: response.data.data.user, token: response.data.data.token },
         });
         return { success: true };
       } else {

@@ -4,9 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '@/services/databaseService';
 import { EncryptionService } from '@/services/encryptionService';
 import { BusinessDayService } from '@/services/businessDayService';
-import { ACHTransaction, EncryptedTransaction, TransactionStatus, TransactionFilters, ApiResponse } from '@/types';
+import { ACHTransaction, EncryptedTransaction, TransactionStatus, TransactionFilters, ApiResponse, TransactionEntryFilters } from '@/types';
 import { TransactionEntryService } from '@/services/transactionEntryService';
-import { ACHTransaction, EncryptedTransaction, TransactionStatus, ApiResponse } from '@/types';
 import { authMiddleware, requireOperator, requireTransactionAccess, requireInternal } from '@/middleware/auth';
 
 const router = express.Router();
@@ -46,8 +45,6 @@ const transactionSchema = Joi.object({
   senderDetails: Joi.string().max(255).optional()
 });
 
-// Create a new ACH transaction - Allow organizations to submit transactions
-router.post('/', requireTransactionAccess, async (req, res) => {
 // Validation schema for separate debit/credit transaction
 const separateTransactionSchema = Joi.object({
   // Debit Information
@@ -119,35 +116,46 @@ router.post('/', requireOperator, async (req, res) => {
     // Create transaction object
     const transaction: ACHTransaction = {
       id: uuidv4(),
-      organizationId: organization.id,
-      traceNumber,
-      drRoutingNumber: value.drRoutingNumber,
-      drAccountNumber: value.drAccountNumber,
-      drId: value.drId,
-      drName: value.drName,
-      crRoutingNumber: value.crRoutingNumber,
-      crAccountNumber: value.crAccountNumber,
-      crId: value.crId,
-      crName: value.crName,
+      transactionId: uuidv4(),
+      routingNumber: value.drRoutingNumber, // Use DR routing as primary
+      accountNumber: value.drAccountNumber, // Use DR account as primary
+      accountType: 'checking',
+      transactionType: 'debit',
       amount: value.amount,
       effectiveDate,
+      description: `ACH Transaction - DR: ${value.drName}, CR: ${value.crName}`,
+      individualId: value.drId,
+      individualName: value.drName,
+      companyName: value.crName,
+      companyId: value.crId,
       senderIp,
-      senderDetails: value.senderDetails,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      status: TransactionStatus.PENDING
+      timestamp: new Date(),
+      status: TransactionStatus.PENDING,
+      createdBy: req.user?.userId || 'system',
+      updatedBy: req.user?.userId || 'system'
     };
 
     // Encrypt sensitive account numbers
     const encryptedTransaction: EncryptedTransaction = {
       ...transaction,
-      drAccountNumberEncrypted: encryptionService.encrypt(transaction.drAccountNumber),
-      crAccountNumberEncrypted: encryptionService.encrypt(transaction.crAccountNumber)
+      accountNumberEncrypted: encryptionService.encrypt(transaction.accountNumber),
+      drRoutingNumber: value.drRoutingNumber,
+      drAccountNumberEncrypted: encryptionService.encrypt(value.drAccountNumber),
+      drId: value.drId,
+      drName: value.drName,
+      crRoutingNumber: value.crRoutingNumber,
+      crAccountNumberEncrypted: encryptionService.encrypt(value.crAccountNumber),
+      crId: value.crId,
+      crName: value.crName,
+      senderDetails: value.senderDetails,
+      organizationId: organization.id,
+      traceNumber: traceNumber,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     // Remove unencrypted account numbers
-    delete (encryptedTransaction as any).drAccountNumber;
-    delete (encryptedTransaction as any).crAccountNumber;
+    delete (encryptedTransaction as any).accountNumber;
 
     // Save to database
     const savedTransaction = await databaseService.createTransaction(encryptedTransaction);
@@ -156,18 +164,20 @@ router.post('/', requireOperator, async (req, res) => {
       success: true,
       data: {
         id: savedTransaction.id,
-        organizationId: savedTransaction.organizationId,
-        traceNumber: savedTransaction.traceNumber,
-        drRoutingNumber: savedTransaction.drRoutingNumber,
-        drId: savedTransaction.drId,
-        drName: savedTransaction.drName,
-        crRoutingNumber: savedTransaction.crRoutingNumber,
-        crId: savedTransaction.crId,
-        crName: savedTransaction.crName,
+        transactionId: savedTransaction.transactionId,
+        routingNumber: savedTransaction.routingNumber,
+        accountNumber: '****' + value.drAccountNumber.slice(-4), // Masked account number
+        accountType: savedTransaction.accountType,
+        transactionType: savedTransaction.transactionType,
         amount: savedTransaction.amount,
         effectiveDate: savedTransaction.effectiveDate,
+        description: savedTransaction.description,
+        individualId: savedTransaction.individualId,
+        individualName: savedTransaction.individualName,
+        companyName: savedTransaction.companyName,
+        companyId: savedTransaction.companyId,
         status: savedTransaction.status,
-        createdAt: savedTransaction.createdAt
+        createdAt: savedTransaction.timestamp
       },
       message: 'ACH transaction created successfully'
     };
@@ -242,8 +252,6 @@ router.post('/separate', requireOperator, async (req, res) => {
 
 // Get all ACH transactions with pagination and filtering - Internal access only
 router.get('/', requireInternal, async (req, res) => {
-// Get all ACH transactions with pagination and enhanced filtering
-router.get('/', async (req, res) => {
   try {
     const querySchema = Joi.object({
       page: Joi.number().integer().min(1).default(1),

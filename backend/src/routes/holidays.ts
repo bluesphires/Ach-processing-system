@@ -72,7 +72,9 @@ router.post('/', requireInternal, async (req, res) => {
       name: value.name,
       date: new Date(value.date),
       year: value.year,
-      recurring: value.recurring
+      recurring: value.recurring,
+      isRecurring: value.recurring,
+      createdAt: new Date()
     };
 
     const createdHoliday = await databaseService.createFederalHoliday(holiday);
@@ -240,7 +242,9 @@ router.post('/generate/:year', requireInternal, async (req, res) => {
         name: holiday.name,
         date: holiday.date,
         year: holiday.year,
-        recurring: holiday.recurring
+        recurring: holiday.recurring,
+        isRecurring: holiday.recurring,
+        createdAt: holiday.createdAt
       };
       
       const created = await databaseService.createFederalHoliday(holidayData);

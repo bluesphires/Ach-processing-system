@@ -108,6 +108,8 @@ export class ConfigService {
         id: holiday.id,
         name: holiday.name,
         date: new Date(holiday.date),
+        year: new Date(holiday.date).getFullYear(),
+        recurring: holiday.is_recurring,
         isRecurring: holiday.is_recurring,
         createdAt: new Date(holiday.created_at)
       }));
@@ -142,6 +144,8 @@ export class ConfigService {
         id: holiday.id,
         name: holiday.name,
         date: new Date(holiday.date),
+        year: new Date(holiday.date).getFullYear(),
+        recurring: holiday.is_recurring,
         isRecurring: holiday.is_recurring,
         createdAt: new Date(holiday.created_at)
       };

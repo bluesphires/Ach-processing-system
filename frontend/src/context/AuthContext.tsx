@@ -56,6 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: payload.email,
         firstName: payload.firstName || 'User',
         lastName: payload.lastName || '',
+        name: `${payload.firstName || 'User'} ${payload.lastName || ''}`.trim(),
         role: payload.role,
         isActive: true,
         createdAt: new Date(),
@@ -74,8 +75,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       const response: APIResponse<LoginResponse> = await apiClient.post('/auth/login', credentials);
       
-      if (response.success && response.data) {
-        const { token, user: userData } = response.data;
+      if (response.success && response.data && response.data.data) {
+        const { token, user: userData } = response.data.data;
         
         // Store token in cookies
         Cookies.set('token', token, { expires: 1 }); // 1 day

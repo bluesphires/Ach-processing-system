@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { SystemConfig, SFTPSettings, ACHSettings, FederalHoliday } from '@/types';
+import { SystemConfig, SFTPConfig, ACHSettings, FederalHoliday } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // System Configuration Queries
@@ -105,7 +105,7 @@ export function useUpdateSFTPSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (settings: SFTPSettings) => {
+    mutationFn: async (settings: SFTPConfig) => {
       const response = await apiClient.setSFTPSettings(settings);
       return response.data;
     },
@@ -253,8 +253,11 @@ export function useGenerateDefaultHolidays() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (year: number) => {
+    mutationFn: async (year: number): Promise<FederalHoliday[]> => {
       const response = await apiClient.generateDefaultHolidays(year);
+      if (!response.data) {
+        throw new Error('Failed to generate default holidays');
+      }
       return response.data;
     },
     onSuccess: (holidays: FederalHoliday[], year: number) => {

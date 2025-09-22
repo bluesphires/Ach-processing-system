@@ -34,7 +34,9 @@ export function useLogin() {
     },
     onSuccess: (data: AuthResponse) => {
       // Cache user data
-      queryClient.setQueryData(queryKeys.currentUser, data.user);
+      if (data.data?.user) {
+        queryClient.setQueryData(queryKeys.currentUser, data.data.user);
+      }
       // Invalidate all queries to refetch with new auth
       queryClient.invalidateQueries();
       toast.success('Successfully logged in');
@@ -59,7 +61,9 @@ export function useRegister() {
     },
     onSuccess: (data: AuthResponse) => {
       // Cache user data
-      queryClient.setQueryData(queryKeys.currentUser, data.user);
+      if (data.data?.user) {
+        queryClient.setQueryData(queryKeys.currentUser, data.data.user);
+      }
       // Invalidate all queries to refetch with new auth
       queryClient.invalidateQueries();
       toast.success('Successfully registered');

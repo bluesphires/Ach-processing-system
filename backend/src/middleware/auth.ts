@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-import { AuthTokenPayload, UserRole } from '../types';
+import { AuthTokenPayload, UserRole, ApiResponse } from '../types';
 import { logger } from '../utils/logger';
 
 interface AuthenticatedRequest extends Request {
@@ -52,119 +52,29 @@ export const requireRole = (roles: UserRole[]) => {
         success: false, 
         error: 'Insufficient permissions' 
       });
-
-import { UserRole, ApiResponse } from '@/types';
-
-// Extend Express Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        userId: string;
-        email: string;
-        role: UserRole;
-      };
-    }
-  }
-}
-
-export interface JWTPayload {
-  userId: string;
-  email: string;
-  role: UserRole;
-  iat: number;
-  exp: number;
-}
-
-/**
- * Authentication middleware to verify JWT tokens
- */
-export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-
-    if (!token) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Access denied. No token provided.'
-      };
-      res.status(401).json(response);
-      return;
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
-    req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role
-    };
-
-    next();
-  } catch (error) {
-    const response: ApiResponse = {
-      success: false,
-      error: 'Invalid token.'
-    };
-    res.status(401).json(response);
-  }
-};
-
-/**
- * Role-based access control middleware
- */
-export const requireRole = (...roles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Authentication required.'
-      };
-      res.status(401).json(response);
-      return;
-    }
-
-    if (!roles.includes(req.user.role)) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Insufficient permissions.'
-      };
-      res.status(403).json(response);
-      return;
-
     }
 
     next();
   };
 };
 
+// Extend Express Request interface to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthTokenPayload;
+    }
+  }
+}
 
-export const requireAdmin = requireRole(['admin']);
-export const requireOperator = requireRole(['admin', 'operator']);
+export const requireAdmin = requireRole([UserRole.ADMIN]);
+export const requireOperator = requireRole([UserRole.ADMIN, UserRole.OPERATOR]);
+export const requireOrganization = requireRole([UserRole.ORGANIZATION]);
+export const requireTransactionAccess = requireRole([UserRole.ADMIN, UserRole.OPERATOR, UserRole.ORGANIZATION]);
+export const requireInternal = requireRole([UserRole.ADMIN, UserRole.OPERATOR]);
+
+// Alias for backward compatibility
+export const authMiddleware = authenticateToken;
 
 // Export the authenticated request type for use in routes
 export { AuthenticatedRequest };
-
-/**
- * Admin only middleware
- */
-export const requireAdmin = requireRole(UserRole.ADMIN);
-
-/**
- * Admin or Operator middleware
- */
-export const requireOperator = requireRole(UserRole.ADMIN, UserRole.OPERATOR);
-
-/**
- * Organization only middleware
- */
-export const requireOrganization = requireRole(UserRole.ORGANIZATION);
-
-/**
- * Organization or higher access middleware (for transaction submission)
- */
-export const requireTransactionAccess = requireRole(UserRole.ADMIN, UserRole.OPERATOR, UserRole.ORGANIZATION);
-
-/**
- * Internal access only (Admin/Operator) - excludes organizations
- */
-export const requireInternal = requireRole(UserRole.ADMIN, UserRole.OPERATOR);

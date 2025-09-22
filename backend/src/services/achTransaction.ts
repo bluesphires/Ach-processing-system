@@ -334,17 +334,23 @@ export class ACHTransactionService {
   private static mapDatabaseToNACHAFile(dbFile: any): NACHAFile {
     return {
       id: dbFile.id,
+      organizationId: dbFile.organization_id || 'default-org',
       filename: dbFile.filename,
+      content: dbFile.file_content || '',
       effectiveDate: new Date(dbFile.effective_date),
+      transactionCount: dbFile.total_records || 0,
+      totalAmount: dbFile.total_amount || 0,
       totalRecords: dbFile.total_records,
       totalDebits: dbFile.total_debits,
       totalCredits: dbFile.total_credits,
       status: dbFile.status,
       generatedAt: new Date(dbFile.generated_at),
       transmittedAt: dbFile.transmitted_at ? new Date(dbFile.transmitted_at) : undefined,
-      filePath: '', // Not stored in DB for security
-      transactionIds: dbFile.transaction_ids,
-      createdBy: dbFile.created_by
+      filePath: dbFile.file_path || '',
+      transactionIds: dbFile.transaction_ids || [],
+      createdBy: dbFile.created_by,
+      createdAt: new Date(dbFile.created_at),
+      transmitted: dbFile.transmitted || false
     };
   }
 }

@@ -135,6 +135,9 @@ export class BusinessDayService {
     
     // Return the next business day which is the effective date for transactions to be released today
     return this.addBusinessDays(actualReleaseDate, 1);
+  }
+
+  /**
    * Check if a date is valid for ACH effective date (must be business day)
    */
   isValidEffectiveDate(date: Date): boolean {
@@ -161,70 +164,90 @@ export class BusinessDayService {
         name: "New Year's Day",
         date: new Date(year, 0, 1),
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `mlk-day-${year}`,
         name: "Martin Luther King Jr. Day",
         date: this.getNthWeekdayOfMonth(year, 0, 1, 3), // 3rd Monday in January
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `presidents-day-${year}`,
         name: "Presidents Day",
         date: this.getNthWeekdayOfMonth(year, 1, 1, 3), // 3rd Monday in February
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `memorial-day-${year}`,
         name: "Memorial Day",
         date: this.getLastWeekdayOfMonth(year, 4, 1), // Last Monday in May
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `independence-day-${year}`,
         name: "Independence Day",
         date: new Date(year, 6, 4),
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `labor-day-${year}`,
         name: "Labor Day",
         date: this.getNthWeekdayOfMonth(year, 8, 1, 1), // 1st Monday in September
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `columbus-day-${year}`,
         name: "Columbus Day",
         date: this.getNthWeekdayOfMonth(year, 9, 1, 2), // 2nd Monday in October
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `veterans-day-${year}`,
         name: "Veterans Day",
         date: new Date(year, 10, 11),
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `thanksgiving-${year}`,
         name: "Thanksgiving Day",
         date: this.getNthWeekdayOfMonth(year, 10, 4, 4), // 4th Thursday in November
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       },
       {
         id: `christmas-${year}`,
         name: "Christmas Day",
         date: new Date(year, 11, 25),
         year,
-        recurring: true
+        recurring: true,
+        isRecurring: true,
+        createdAt: new Date()
       }
     ];
 

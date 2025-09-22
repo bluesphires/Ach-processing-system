@@ -7,7 +7,6 @@ import {
   User, 
   Organization,
   ACHTransaction, 
-  ACHTransaction,
   TransactionEntry,
   TransactionGroup,
   CreateTransactionRequest,
@@ -18,7 +17,7 @@ import {
   NACHAGenerationStats,
   FederalHoliday,
   SystemConfig,
-  SFTPSettings,
+  SFTPConfig,
   ACHSettings,
   BusinessDayInfo
 } from '@/types';
@@ -301,13 +300,13 @@ class ApiClient {
     return response.data;
   }
 
-  async setSFTPSettings(settings: SFTPSettings): Promise<ApiResponse> {
+  async setSFTPSettings(settings: SFTPConfig): Promise<ApiResponse> {
     const response: AxiosResponse<ApiResponse> = await this.client.put('/api/config/sftp/settings', settings);
     return response.data;
   }
 
-  async getSFTPSettings(): Promise<ApiResponse<SFTPSettings>> {
-    const response: AxiosResponse<ApiResponse<SFTPSettings>> = await this.client.get('/api/config/sftp/settings');
+  async getSFTPSettings(): Promise<ApiResponse<SFTPConfig>> {
+    const response: AxiosResponse<ApiResponse<SFTPConfig>> = await this.client.get('/api/config/sftp/settings');
     return response.data;
   }
 
