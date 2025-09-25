@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../utils/supabase';
+import { supabase, supabaseAdmin } from '../utils/supabase';
 import { logger } from '../utils/logger';
 import { AuthTokenPayload } from '../types';
 import Joi from 'joi';
@@ -41,7 +41,7 @@ router.post('/login', async (req: Request, res: Response) => {
       .from('users')
       .select('*')
       .eq('email', email)
-      .eq('is_active', true)
+      .eq('active', true)
       .single();
 
     if (dbError || !user) {
@@ -53,7 +53,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       logger.warn('Login attempt with invalid password', { email, userId: user.id });
       return res.status(401).json({
@@ -91,8 +91,8 @@ router.post('/login', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
+          firstName: user.name.split(' ')[0] || user.name,
+          lastName: user.name.split(' ').slice(1).join(' ') || '',
           role: user.role
         }
       }
@@ -120,8 +120,12 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const { email, password, firstName, lastName, role } = value;
 
+    if (!supabaseAdmin) {
+      throw new Error('Admin client not configured');
+    }
+
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('email', email)
@@ -138,20 +142,29 @@ router.post('/register', async (req: Request, res: Response) => {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
+    // Get default organization
+    const { data: defaultOrg } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('name', 'Default Organization')
+      .single();
+
+    if (!defaultOrg) {
+      throw new Error('Default organization not found');
+    }
+
     // Create user
-    const { data: newUser, error: createError } = await supabase
+    const { data: newUser, error: createError } = await supabaseAdmin
       .from('users')
       .insert({
         email,
-        password_hash: passwordHash,
-        first_name: firstName,
-        last_name: lastName,
+        password: passwordHash,
+        name: `${firstName} ${lastName}`.trim(),
         role,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        organization_id: defaultOrg.id,
+        active: true
       })
-      .select('id, email, first_name, last_name, role')
+      .select('id, email, name, role')
       .single();
 
     if (createError) {
@@ -166,8 +179,8 @@ router.post('/register', async (req: Request, res: Response) => {
         user: {
           id: newUser.id,
           email: newUser.email,
-          firstName: newUser.first_name,
-          lastName: newUser.last_name,
+          firstName: newUser.name.split(' ')[0] || newUser.name,
+          lastName: newUser.name.split(' ').slice(1).join(' ') || '',
           role: newUser.role
         }
       }

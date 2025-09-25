@@ -136,7 +136,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-600">
               Need an account?{' '}
               <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Contact your administrator
+                Sign up here
               </Link>
             </p>
           </div>
