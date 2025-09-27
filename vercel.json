@@ -7,11 +7,6 @@
     "NEXT_PUBLIC_API_BASE_URL": "https://ach-processing-system-production.up.railway.app/"
   },
   "regions": ["iad1", "sfo1"],
-  "functions": {
-    "frontend/src/app/**": {
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
