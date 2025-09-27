@@ -25,18 +25,16 @@ export function useLogin() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    mutationFn: async (credentials: LoginRequest) => {
       const response = await apiClient.login(credentials);
       if (!response.data) {
-        throw new Error('Login failed - no response data');
+        throw new Error('Login failed');
       }
       return response.data;
     },
     onSuccess: (data: AuthResponse) => {
       // Cache user data
-      if (data.data?.user) {
-        queryClient.setQueryData(queryKeys.currentUser, data.data.user);
-      }
+      queryClient.setQueryData(queryKeys.currentUser, data.user);
       // Invalidate all queries to refetch with new auth
       queryClient.invalidateQueries();
       toast.success('Successfully logged in');
@@ -52,18 +50,16 @@ export function useRegister() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (userData: RegisterRequest): Promise<AuthResponse> => {
+    mutationFn: async (userData: RegisterRequest) => {
       const response = await apiClient.register(userData);
       if (!response.data) {
-        throw new Error('Registration failed - no response data');
+        throw new Error('Registration failed');
       }
       return response.data;
     },
     onSuccess: (data: AuthResponse) => {
       // Cache user data
-      if (data.data?.user) {
-        queryClient.setQueryData(queryKeys.currentUser, data.data.user);
-      }
+      queryClient.setQueryData(queryKeys.currentUser, data.user);
       // Invalidate all queries to refetch with new auth
       queryClient.invalidateQueries();
       toast.success('Successfully registered');
@@ -80,8 +76,8 @@ export function useLogout() {
   
   return useMutation({
     mutationFn: async () => {
-      // Just clear the token locally - no server call needed
-      apiClient.clearToken();
+      // Logout is handled client-side by clearing tokens
+      // No server call needed
     },
     onSuccess: () => {
       // Clear all cached data
@@ -101,14 +97,17 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (profileData: Partial<User>): Promise<User> => {
-      await apiClient.updateProfile(profileData);
-      // Fetch updated profile after update
-      const response = await apiClient.getProfile();
-      if (!response.data) {
+    mutationFn: async (profileData: Partial<User>) => {
+      const response = await apiClient.updateProfile(profileData);
+      if (!response.success) {
+        throw new Error('Profile update failed');
+      }
+      // Refetch user data after successful update
+      const userResponse = await apiClient.getProfile();
+      if (!userResponse.data) {
         throw new Error('Failed to fetch updated profile');
       }
-      return response.data;
+      return userResponse.data;
     },
     onSuccess: (updatedUser: User) => {
       // Update cached user data
@@ -126,7 +125,10 @@ export function useChangePassword() {
   return useMutation({
     mutationFn: async (passwordData: { currentPassword: string; newPassword: string }) => {
       const response = await apiClient.changePassword(passwordData);
-      return response.data;
+      if (!response.success) {
+        throw new Error('Password change failed');
+      }
+      return response;
     },
     onSuccess: () => {
       toast.success('Password changed successfully');

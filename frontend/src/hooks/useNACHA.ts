@@ -51,7 +51,7 @@ export function useGenerateNACHAFile() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { effectiveDate: string; fileType: 'DR' | 'CR' }): Promise<NACHAFile> => {
+    mutationFn: async (data: { effectiveDate: string; fileType: 'DR' | 'CR' }) => {
       const response = await apiClient.generateNACHAFile(data);
       if (!response.data) {
         throw new Error('Failed to generate NACHA file');
@@ -95,14 +95,17 @@ export function useMarkNACHAFileTransmitted() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: string): Promise<NACHAFile> => {
-      await apiClient.markNACHAFileTransmitted(id);
-      // Fetch the updated NACHA file after marking as transmitted
-      const response = await apiClient.getNACHAFile(id);
-      if (!response.data) {
+    mutationFn: async (id: string) => {
+      const response = await apiClient.markNACHAFileTransmitted(id);
+      if (!response.success) {
+        throw new Error('Failed to mark NACHA file as transmitted');
+      }
+      // Refetch the updated file
+      const fileResponse = await apiClient.getNACHAFile(id);
+      if (!fileResponse.data) {
         throw new Error('Failed to fetch updated NACHA file');
       }
-      return response.data;
+      return fileResponse.data;
     },
     onSuccess: (updatedFile: NACHAFile, fileId: string) => {
       // Update file in cache
@@ -181,6 +184,9 @@ export function useValidateNACHAFile() {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await apiClient.validateNACHAFile(id);
+      if (!response.data) {
+        throw new Error('Failed to validate NACHA file');
+      }
       return response.data;
     },
     onSuccess: (validationResult, fileId) => {
@@ -190,7 +196,7 @@ export function useValidateNACHAFile() {
         validationResult
       );
       
-      const status = validationResult?.isValid ? 'valid' : 'invalid';
+      const status = validationResult.isValid ? 'valid' : 'invalid';
       toast.success(`File validation completed - ${status}`);
     },
     onError: (error: any) => {

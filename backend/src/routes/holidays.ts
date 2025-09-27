@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '@/services/databaseService';
 import { BusinessDayService } from '@/services/businessDayService';
 import { FederalHoliday, ApiResponse } from '@/types';
-import { authMiddleware, requireAdmin, requireOperator, requireInternal } from '@/middleware/auth';
+import { authMiddleware, requireAdmin, requireOperator } from '@/middleware/auth';
 
 const router = express.Router();
 
@@ -19,8 +19,8 @@ const holidaySchema = Joi.object({
   recurring: Joi.boolean().default(true)
 });
 
-// Get all federal holidays - Internal access only
-router.get('/', requireInternal, async (req, res) => {
+// Get all federal holidays
+router.get('/', async (req, res) => {
   try {
     const querySchema = Joi.object({
       year: Joi.number().integer().min(2020).max(2050).optional()
@@ -55,7 +55,7 @@ router.get('/', requireInternal, async (req, res) => {
 });
 
 // Create a new federal holiday
-router.post('/', requireInternal, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const { error, value } = holidaySchema.validate(req.body);
     if (error) {
@@ -72,9 +72,7 @@ router.post('/', requireInternal, async (req, res) => {
       name: value.name,
       date: new Date(value.date),
       year: value.year,
-      recurring: value.recurring,
-      isRecurring: value.recurring,
-      createdAt: new Date()
+      recurring: value.recurring
     };
 
     const createdHoliday = await databaseService.createFederalHoliday(holiday);
@@ -102,7 +100,7 @@ router.post('/', requireInternal, async (req, res) => {
 });
 
 // Update a federal holiday
-router.put('/:id', requireInternal, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updateSchema = Joi.object({
@@ -165,7 +163,7 @@ router.put('/:id', requireInternal, async (req, res) => {
 });
 
 // Delete a federal holiday
-router.delete('/:id', requireInternal, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -207,7 +205,7 @@ router.delete('/:id', requireInternal, async (req, res) => {
 });
 
 // Generate default federal holidays for a year
-router.post('/generate/:year', requireInternal, async (req, res) => {
+router.post('/generate/:year', requireAdmin, async (req, res) => {
   try {
     const { year } = req.params;
     const yearNum = parseInt(year);
@@ -242,9 +240,7 @@ router.post('/generate/:year', requireInternal, async (req, res) => {
         name: holiday.name,
         date: holiday.date,
         year: holiday.year,
-        recurring: holiday.recurring,
-        isRecurring: holiday.recurring,
-        createdAt: holiday.createdAt
+        recurring: holiday.recurring
       };
       
       const created = await databaseService.createFederalHoliday(holidayData);
@@ -273,8 +269,8 @@ router.post('/generate/:year', requireInternal, async (req, res) => {
   }
 });
 
-// Check if a date is a business day - Internal access only
-router.get('/business-day/check/:date', requireInternal, async (req, res) => {
+// Check if a date is a business day
+router.get('/business-day/check/:date', async (req, res) => {
   try {
     const { date } = req.params;
     const checkDate = new Date(date);
@@ -315,8 +311,8 @@ router.get('/business-day/check/:date', requireInternal, async (req, res) => {
   }
 });
 
-// Calculate business days between two dates - Internal access only
-router.get('/business-day/calculate', requireInternal, async (req, res) => {
+// Calculate business days between two dates
+router.get('/business-day/calculate', async (req, res) => {
   try {
     const querySchema = Joi.object({
       startDate: Joi.date().required(),
@@ -360,8 +356,8 @@ router.get('/business-day/calculate', requireInternal, async (req, res) => {
   }
 });
 
-// Get next business day from a date - Internal access only
-router.get('/business-day/next/:date', requireInternal, async (req, res) => {
+// Get next business day from a date
+router.get('/business-day/next/:date', async (req, res) => {
   try {
     const { date } = req.params;
     const inputDate = new Date(date);

@@ -17,6 +17,7 @@ interface AuthContextType extends AuthState {
   logout: () => void;
   updateProfile: (updates: { name?: string; email?: string }) => Promise<{ success: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
+  hasRole: (roles: string[]) => boolean;
 }
 
 type AuthAction =
@@ -100,12 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await apiClient.login({ email, password });
       
-      if (response.success && response.data && response.data.data) {
-        apiClient.setToken(response.data.data.token);
+      if (response.success && response.data) {
+        // Set token first
+        apiClient.setToken(response.data.token);
+        
+        // Then set user state
         dispatch({
           type: 'SET_USER',
-          payload: { user: response.data.data.user, token: response.data.data.token },
+          payload: { user: response.data.user, token: response.data.token },
         });
+        
+        // Ensure loading is set to false after successful login
+        dispatch({ type: 'SET_LOADING', payload: false });
+        
         return { success: true };
       } else {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -130,11 +138,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const lastName = nameParts.slice(1).join(' ') || '';
       const response = await apiClient.register({ email, password, firstName, lastName });
       
-      if (response.success && response.data && response.data.data) {
-        apiClient.setToken(response.data.data.token);
+      if (response.success && response.data) {
+        apiClient.setToken(response.data.token);
         dispatch({
           type: 'SET_USER',
-          payload: { user: response.data.data.user, token: response.data.data.token },
+          payload: { user: response.data.user, token: response.data.token },
         });
         return { success: true };
       } else {
@@ -187,6 +195,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const hasRole = (roles: string[]): boolean => {
+    if (!state.user) return false;
+    return roles.includes(state.user.role);
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
@@ -194,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updateProfile,
     refreshProfile,
+    hasRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

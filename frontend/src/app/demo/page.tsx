@@ -16,9 +16,6 @@ export default function DemoTransactionPage() {
     crName: '',
     crEffectiveDate: '',
     amount: 0,
-    effectiveDate: '',
-    description: '',
-    organizationKey: '',
     senderDetails: ''
   });
 

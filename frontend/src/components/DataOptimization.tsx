@@ -145,6 +145,9 @@ export function SmartPagination({
   totalPages, 
   prefetchFn 
 }: SmartPaginationProps) {
+  const queryClient = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   useEffect(() => {
     // Prefetch next and previous pages
     const pagesToPrefetch: number[] = [];

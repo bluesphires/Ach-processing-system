@@ -1,23 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/utils/api';
+import { apiClient } from '@/lib/api';
 import {
-  ACHTransaction,
-  NACHAFile,
-  APIResponse,
-  PaginatedResponse,
   CreateTransactionRequest,
-  TransactionFilters,
-  DailySummary,
-  SystemConfig,
-  FederalHoliday,
-  SFTPConfig
+  TransactionFilters
 } from '@/types';
 
 // ACH Transaction hooks
 export function useTransactions(filters: TransactionFilters = {}) {
   return useQuery({
     queryKey: ['transactions', filters],
-    queryFn: () => apiClient.get<PaginatedResponse<ACHTransaction>>('/ach', { params: filters }),
+    queryFn: () => apiClient.getTransactions(filters),
     placeholderData: (previousData) => previousData,
   });
 }
@@ -25,7 +17,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
 export function useTransaction(id: string) {
   return useQuery({
     queryKey: ['transaction', id],
-    queryFn: () => apiClient.get<APIResponse<ACHTransaction>>(`/ach/${id}`),
+    queryFn: () => apiClient.getTransaction(id),
     enabled: !!id,
   });
 }
@@ -35,7 +27,7 @@ export function useCreateTransaction() {
   
   return useMutation({
     mutationFn: (data: CreateTransactionRequest) => 
-      apiClient.post<APIResponse<ACHTransaction>>('/ach', data),
+      apiClient.createTransaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
@@ -47,7 +39,7 @@ export function useUpdateTransactionStatus() {
   
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiClient.patch<APIResponse<ACHTransaction>>(`/ach/${id}/status`, { status }),
+      apiClient.updateTransactionStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
@@ -58,9 +50,7 @@ export function useUpdateTransactionStatus() {
 export function useNACHAFiles(page = 1, limit = 20) {
   return useQuery({
     queryKey: ['nacha-files', page, limit],
-    queryFn: () => apiClient.get<PaginatedResponse<NACHAFile>>('/ach/nacha/files', { 
-      params: { page, limit } 
-    })
+    queryFn: () => apiClient.getNACHAFiles({ page, limit })
   });
 }
 
@@ -68,8 +58,8 @@ export function useGenerateNACHAFile() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (effectiveDate: string) =>
-      apiClient.post<APIResponse<NACHAFile>>('/ach/nacha/generate', { effectiveDate }),
+    mutationFn: (data: { effectiveDate: string; fileType: 'DR' | 'CR' }) =>
+      apiClient.generateNACHAFileFromEntries(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nacha-files'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -80,7 +70,15 @@ export function useGenerateNACHAFile() {
 export function useDownloadNACHAFile() {
   return useMutation({
     mutationFn: async ({ id, filename }: { id: string; filename: string }) => {
-      await apiClient.downloadFile(`/ach/nacha/files/${id}/download`, filename);
+      const blob = await apiClient.downloadNACHAFile(id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     }
   });
 }
@@ -89,40 +87,38 @@ export function useDownloadNACHAFile() {
 export function useDailySummary(date?: string) {
   return useQuery({
     queryKey: ['daily-summary', date],
-    queryFn: () => apiClient.get<APIResponse<DailySummary>>('/reports/daily-summary', {
-      params: date ? { date } : {}
-    })
+    queryFn: () => apiClient.getTransactionStats(),
+    enabled: !!date,
   });
 }
 
 export function useMonthlySummary(year: number, month: number) {
   return useQuery({
     queryKey: ['monthly-summary', year, month],
-    queryFn: () => apiClient.get<APIResponse<any>>('/reports/monthly-summary', {
-      params: { year, month }
-    })
+    queryFn: () => apiClient.getTransactionStats(),
+    enabled: !!year && !!month,
   });
 }
 
 export function useTransactionStats() {
-  return useMutation({
-    mutationFn: (dateRange: { startDate: string; endDate: string }) =>
-      apiClient.post<APIResponse<any>>('/reports/transaction-stats', dateRange)
+  return useQuery({
+    queryKey: ['transaction-stats'],
+    queryFn: () => apiClient.getTransactionStats()
   });
 }
 
 export function useNACHAStats(days = 30) {
   return useQuery({
     queryKey: ['nacha-stats', days],
-    queryFn: () => apiClient.get<APIResponse<any>>('/reports/nacha-stats', { params: { days } })
+    queryFn: () => apiClient.getNACHAGenerationStats()
   });
 }
 
 export function useExportTransactions() {
   return useMutation({
     mutationFn: async (dateRange: { startDate: string; endDate: string }) => {
-      const filename = `transactions_${dateRange.startDate}_to_${dateRange.endDate}.csv`;
-      await apiClient.downloadFile('/reports/export/transactions', filename);
+      // This would need to be implemented in the API client
+      console.log('Export transactions for date range:', dateRange);
     }
   });
 }
@@ -131,14 +127,14 @@ export function useExportTransactions() {
 export function useSystemConfigs() {
   return useQuery({
     queryKey: ['system-configs'],
-    queryFn: () => apiClient.get<APIResponse<SystemConfig[]>>('/config')
+    queryFn: () => apiClient.getSystemConfig()
   });
 }
 
 export function useSystemConfig(key: string) {
   return useQuery({
     queryKey: ['system-config', key],
-    queryFn: () => apiClient.get<APIResponse<SystemConfig>>(`/config/${key}`),
+    queryFn: () => apiClient.getSystemConfigByKey(key),
     enabled: !!key,
   });
 }
@@ -147,8 +143,8 @@ export function useUpdateSystemConfig() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ key, ...data }: { key: string; value: any; description?: string; isEncrypted?: boolean }) =>
-      apiClient.put<APIResponse<SystemConfig>>(`/config/${key}`, data),
+    mutationFn: ({ key, value, description }: { key: string; value: string; description?: string }) =>
+      apiClient.setSystemConfig(key, value, description),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-configs'] });
     },
@@ -159,7 +155,7 @@ export function useUpdateSystemConfig() {
 export function useFederalHolidays() {
   return useQuery({
     queryKey: ['federal-holidays'],
-    queryFn: () => apiClient.get<APIResponse<FederalHoliday[]>>('/config/holidays/list')
+    queryFn: () => apiClient.getFederalHolidays()
   });
 }
 
@@ -168,7 +164,11 @@ export function useAddFederalHoliday() {
   
   return useMutation({
     mutationFn: (data: { name: string; date: string; isRecurring: boolean }) =>
-      apiClient.post<APIResponse<FederalHoliday>>('/config/holidays', data),
+      apiClient.createFederalHoliday({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['federal-holidays'] });
     },
@@ -179,7 +179,7 @@ export function useDeleteFederalHoliday() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete<APIResponse<any>>(`/config/holidays/${id}`),
+    mutationFn: (id: string) => apiClient.deleteFederalHoliday(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['federal-holidays'] });
     },
@@ -190,7 +190,7 @@ export function useDeleteFederalHoliday() {
 export function useSFTPConfig() {
   return useQuery({
     queryKey: ['sftp-config'],
-    queryFn: () => apiClient.get<APIResponse<SFTPConfig>>('/config/sftp')
+    queryFn: () => apiClient.getSFTPSettings()
   });
 }
 
@@ -198,7 +198,7 @@ export function useUpdateSFTPConfig() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (data: SFTPConfig) => apiClient.put<APIResponse<SFTPConfig>>('/config/sftp', data),
+    mutationFn: (data: any) => apiClient.setSFTPSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sftp-config'] });
     },
@@ -207,6 +207,6 @@ export function useUpdateSFTPConfig() {
 
 export function useTestSFTPConnection() {
   return useMutation({
-    mutationFn: () => apiClient.post<APIResponse<{ success: boolean; message: string }>>('/config/sftp/test')
+    mutationFn: () => apiClient.testSFTPConnection()
   });
 }

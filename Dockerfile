@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm ci --only=production
 
 # Copy source code
 COPY backend/src ./src

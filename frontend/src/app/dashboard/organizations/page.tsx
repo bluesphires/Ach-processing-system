@@ -125,7 +125,7 @@ export default function OrganizationsPage() {
     setFormData({
       name: organization.name,
       description: organization.description || '',
-      active: organization.active
+      active: organization.isActive
     });
     setShowEditModal(true);
   };
@@ -236,16 +236,16 @@ export default function OrganizationsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 font-mono">
-                          {organization.organizationKey}
+                          {organization.routingNumber}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          organization.active 
+                          organization.isActive 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {organization.active ? (
+                          {organization.isActive ? (
                             <>
                               <CheckCircleIcon className="h-3 w-3 mr-1" />
                               Active
@@ -259,7 +259,7 @@ export default function OrganizationsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(organization.createdAt)}
+                        {formatDate(organization.createdAt.toString())}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button

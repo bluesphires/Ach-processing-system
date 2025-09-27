@@ -18,7 +18,7 @@ import {
   BuildingOfficeIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { UserRole } from '@/types';
+// import { UserRole } from '@/types'; // Not needed since we use string literals
 import clsx from 'clsx';
 
 interface DashboardLayoutProps {
@@ -27,17 +27,12 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, current: true },
-  { name: 'Transactions', href: '/dashboard/transactions', icon: BanknotesIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR, UserRole.ORGANIZATION] },
-  { name: 'NACHA Files', href: '/dashboard/nacha', icon: DocumentTextIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
-  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
-  { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
-  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: [UserRole.ADMIN, UserRole.OPERATOR] },
   { name: 'Transactions', href: '/dashboard/transactions', icon: BanknotesIcon, current: false },
   { name: 'NACHA Files', href: '/dashboard/nacha', icon: DocumentTextIcon, current: false },
-  { name: 'Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon, current: false, roles: [UserRole.ADMIN] },
+  { name: 'Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon, current: false, roles: ['admin'] },
   { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, current: false },
-  { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: [UserRole.ADMIN] },
-  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: [UserRole.ADMIN] },
+  { name: 'Holidays', href: '/dashboard/holidays', icon: CalendarIcon, current: false, roles: ['admin'] },
+  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, current: false, roles: ['admin'] },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -179,7 +174,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <UserCircleIcon className="h-8 w-8 text-gray-400" />
                   <span className="sr-only">Your profile</span>
                   <div className="flex-1">
-                    <div className="text-sm font-medium">{user?.name}</div>
+                    <div className="text-sm font-medium">{user?.firstName} {user?.lastName}</div>
                     <div className="text-xs text-gray-500 capitalize">{user?.role}</div>
                   </div>
                   <button
@@ -211,7 +206,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </button>
       </div>
 
-      <main className="py-10 lg:pl-72">
+      <main className="py-10 lg:pl-72 bg-gray-50 min-h-screen">
         <div className="px-4 sm:px-6 lg:px-8">
           {children}
         </div>

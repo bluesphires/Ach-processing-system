@@ -21,12 +21,15 @@ export default function LoginPage() {
 
     try {
       const result = await login(email, password);
+      
       if (result.success) {
         toast.success('Login successful!');
         router.push('/dashboard');
       } else {
         toast.error(result.error || 'Login failed');
       }
+    } catch (error) {
+      toast.error('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +139,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-600">
               Need an account?{' '}
               <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Sign up here
+                Contact your administrator
               </Link>
             </p>
           </div>

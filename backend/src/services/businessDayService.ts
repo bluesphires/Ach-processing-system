@@ -164,90 +164,70 @@ export class BusinessDayService {
         name: "New Year's Day",
         date: new Date(year, 0, 1),
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `mlk-day-${year}`,
         name: "Martin Luther King Jr. Day",
         date: this.getNthWeekdayOfMonth(year, 0, 1, 3), // 3rd Monday in January
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `presidents-day-${year}`,
         name: "Presidents Day",
         date: this.getNthWeekdayOfMonth(year, 1, 1, 3), // 3rd Monday in February
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `memorial-day-${year}`,
         name: "Memorial Day",
         date: this.getLastWeekdayOfMonth(year, 4, 1), // Last Monday in May
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `independence-day-${year}`,
         name: "Independence Day",
         date: new Date(year, 6, 4),
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `labor-day-${year}`,
         name: "Labor Day",
         date: this.getNthWeekdayOfMonth(year, 8, 1, 1), // 1st Monday in September
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `columbus-day-${year}`,
         name: "Columbus Day",
         date: this.getNthWeekdayOfMonth(year, 9, 1, 2), // 2nd Monday in October
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `veterans-day-${year}`,
         name: "Veterans Day",
         date: new Date(year, 10, 11),
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `thanksgiving-${year}`,
         name: "Thanksgiving Day",
         date: this.getNthWeekdayOfMonth(year, 10, 4, 4), // 4th Thursday in November
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       },
       {
         id: `christmas-${year}`,
         name: "Christmas Day",
         date: new Date(year, 11, 25),
         year,
-        recurring: true,
-        isRecurring: true,
-        createdAt: new Date()
+        recurring: true
       }
     ];
 

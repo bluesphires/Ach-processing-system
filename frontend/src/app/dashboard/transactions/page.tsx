@@ -37,7 +37,7 @@ export default function TransactionsPage() {
     limit: 50,
     status: undefined,
     effectiveDate: '',
-    organizationId: '',
+    organizationKey: '',
     amountMin: undefined,
     amountMax: undefined,
     traceNumber: '',
@@ -114,7 +114,7 @@ export default function TransactionsPage() {
       limit: 50,
       status: undefined,
       effectiveDate: '',
-      organizationId: '',
+      organizationKey: '',
       amountMin: undefined,
       amountMax: undefined,
       traceNumber: '',
@@ -200,7 +200,7 @@ export default function TransactionsPage() {
                   <FunnelIcon className="h-4 w-4 mr-2" />
                   Filters
                 </button>
-                {(filters.status || filters.organizationId || filters.traceNumber || filters.drId || filters.crId) && (
+                {(filters.status || filters.organizationKey || filters.traceNumber || filters.drId || filters.crId) && (
                   <button
                     onClick={clearFilters}
                     className="text-sm text-indigo-600 hover:text-indigo-500"
@@ -237,13 +237,13 @@ export default function TransactionsPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Organization</label>
                     <select
-                      value={filters.organizationId}
-                      onChange={(e) => handleFilterChange('organizationId', e.target.value)}
+                      value={filters.organizationKey}
+                      onChange={(e) => handleFilterChange('organizationKey', e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     >
                       <option value="">All organizations</option>
                       {organizations.map((org) => (
-                        <option key={org.id} value={org.id}>
+                        <option key={org.id} value={org.routingNumber}>
                           {org.name}
                         </option>
                       ))}

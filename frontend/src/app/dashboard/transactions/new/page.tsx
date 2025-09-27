@@ -24,9 +24,6 @@ export default function NewTransactionPage() {
     crName: '',
     crEffectiveDate: '',
     amount: 0,
-    effectiveDate: '',
-    description: '',
-    organizationKey: '',
     senderDetails: ''
   });
 

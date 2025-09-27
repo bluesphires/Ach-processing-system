@@ -6,7 +6,7 @@ import {
   AuthResponse, 
   User, 
   Organization,
-  ACHTransaction, 
+  ACHTransaction,
   TransactionEntry,
   TransactionGroup,
   CreateTransactionRequest,
@@ -17,9 +17,6 @@ import {
   NACHAGenerationStats,
   FederalHoliday,
   SystemConfig,
-  SFTPConfig,
-  ACHSettings,
-  BusinessDayInfo
 } from '@/types';
 
 class ApiClient {
@@ -262,8 +259,8 @@ class ApiClient {
     return response.data;
   }
 
-  async checkBusinessDay(date: string): Promise<ApiResponse<BusinessDayInfo>> {
-    const response: AxiosResponse<ApiResponse<BusinessDayInfo>> = await this.client.get(`/api/holidays/business-day/check/${date}`);
+  async checkBusinessDay(date: string): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get(`/api/holidays/business-day/check/${date}`);
     return response.data;
   }
 
@@ -300,13 +297,13 @@ class ApiClient {
     return response.data;
   }
 
-  async setSFTPSettings(settings: SFTPConfig): Promise<ApiResponse> {
+  async setSFTPSettings(settings: any): Promise<ApiResponse> {
     const response: AxiosResponse<ApiResponse> = await this.client.put('/api/config/sftp/settings', settings);
     return response.data;
   }
 
-  async getSFTPSettings(): Promise<ApiResponse<SFTPConfig>> {
-    const response: AxiosResponse<ApiResponse<SFTPConfig>> = await this.client.get('/api/config/sftp/settings');
+  async getSFTPSettings(): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/config/sftp/settings');
     return response.data;
   }
 
@@ -316,13 +313,13 @@ class ApiClient {
     return response.data;
   }
 
-  async setACHSettings(settings: ACHSettings): Promise<ApiResponse> {
+  async setACHSettings(settings: any): Promise<ApiResponse> {
     const response: AxiosResponse<ApiResponse> = await this.client.put('/api/config/ach/settings', settings);
     return response.data;
   }
 
-  async getACHSettings(): Promise<ApiResponse<ACHSettings>> {
-    const response: AxiosResponse<ApiResponse<ACHSettings>> = await this.client.get('/api/config/ach/settings');
+  async getACHSettings(): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/api/config/ach/settings');
     return response.data;
   }
 

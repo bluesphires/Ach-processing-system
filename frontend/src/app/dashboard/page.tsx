@@ -33,6 +33,8 @@ export default function DashboardPage() {
   const { data: nachaFiles, isLoading: filesLoading } = useNACHAFiles({ page: 1, limit: 10 });
 
   useEffect(() => {
+    // Only redirect if we're sure the user is not authenticated
+    // Wait for loading to complete before checking authentication
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
@@ -108,7 +110,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Welcome back, {user?.name}! Here&apos;s an overview of your ACH processing system.
+              Welcome back, {user?.firstName} {user?.lastName}! Here&apos;s an overview of your ACH processing system.
             </p>
           </div>
 
@@ -126,13 +128,13 @@ export default function DashboardPage() {
                   <p className="ml-16 truncate text-sm font-medium text-gray-500">{stat.name}</p>
                 </dt>
                 <dd className="ml-16 flex items-baseline pb-6 sm:pb-7">
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {statsLoading || filesLoading ? (
-                      <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
-                    ) : (
-                      stat.value
-                    )}
-                  </p>
+                  {statsLoading || filesLoading ? (
+                    <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+                  ) : (
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {stat.value}
+                    </p>
+                  )}
                   {stat.change && (
                     <p
                       className={`ml-2 flex items-baseline text-sm font-semibold ${

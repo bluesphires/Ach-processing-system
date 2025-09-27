@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { SystemConfig, SFTPConfig, ACHSettings, FederalHoliday } from '@/types';
+import { SystemConfig, FederalHoliday } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // System Configuration Queries
@@ -75,10 +75,10 @@ export function useUpdateSystemConfig() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ key, value, description }: { key: string; value: string; description?: string }): Promise<SystemConfig> => {
+    mutationFn: async ({ key, value, description }: { key: string; value: string; description?: string }) => {
       const response = await apiClient.setSystemConfig(key, value, description);
       if (!response.data) {
-        throw new Error('Failed to set system configuration');
+        throw new Error('Failed to update system config');
       }
       return response.data;
     },
@@ -105,9 +105,12 @@ export function useUpdateSFTPSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (settings: SFTPConfig) => {
+    mutationFn: async (settings: any) => {
       const response = await apiClient.setSFTPSettings(settings);
-      return response.data;
+      if (!response.success) {
+        throw new Error('Failed to update SFTP settings');
+      }
+      return response;
     },
     onSuccess: () => {
       // Invalidate SFTP-related configs
@@ -132,9 +135,12 @@ export function useUpdateACHSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (settings: ACHSettings) => {
+    mutationFn: async (settings: any) => {
       const response = await apiClient.setACHSettings(settings);
-      return response.data;
+      if (!response.success) {
+        throw new Error('Failed to update ACH settings');
+      }
+      return response;
     },
     onSuccess: () => {
       // Invalidate ACH-related configs
@@ -160,7 +166,7 @@ export function useCreateFederalHoliday() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (holiday: Omit<FederalHoliday, 'id'>): Promise<FederalHoliday> => {
+    mutationFn: async (holiday: Omit<FederalHoliday, 'id'>) => {
       const response = await apiClient.createFederalHoliday(holiday);
       if (!response.data) {
         throw new Error('Failed to create federal holiday');
@@ -193,7 +199,19 @@ export function useUpdateFederalHoliday() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<FederalHoliday> }) => {
       const response = await apiClient.updateFederalHoliday(id, updates);
-      return response.data;
+      if (!response.success) {
+        throw new Error('Failed to update federal holiday');
+      }
+      // Refetch the updated holiday
+      const holidayResponse = await apiClient.getFederalHolidays();
+      if (!holidayResponse.data) {
+        throw new Error('Failed to fetch updated holidays');
+      }
+      const updatedHoliday = holidayResponse.data.find(h => h.id === id);
+      if (!updatedHoliday) {
+        throw new Error('Updated holiday not found');
+      }
+      return updatedHoliday;
     },
     onSuccess: (updatedHoliday: FederalHoliday) => {
       // Invalidate holidays list
@@ -253,7 +271,7 @@ export function useGenerateDefaultHolidays() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (year: number): Promise<FederalHoliday[]> => {
+    mutationFn: async (year: number) => {
       const response = await apiClient.generateDefaultHolidays(year);
       if (!response.data) {
         throw new Error('Failed to generate default holidays');
@@ -285,6 +303,9 @@ export function useTestSFTPConnection() {
   return useMutation({
     mutationFn: async () => {
       const response = await apiClient.testSFTPConnection();
+      if (!response.data) {
+        throw new Error('Failed to test SFTP connection');
+      }
       return response.data;
     },
     onSuccess: () => {

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { authenticateToken, requireAdmin, requireInternal, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { ConfigService } from '../services/config';
 import { logger } from '../utils/logger';
 import Joi from 'joi';
@@ -30,16 +30,17 @@ const sftpConfigSchema = Joi.object({
   enabled: Joi.boolean().default(true)
 });
 
-// Get all system configuration
-router.get('/', requireInternal, async (req, res) => {
+// Get all configuration settings
+router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const config = await ConfigService.getAllConfigs();
+    const configs = await ConfigService.getAllConfigs();
+    
     res.json({
       success: true,
-      data: config
+      data: configs
     });
   } catch (error: any) {
-    logger.error('Failed to get system configuration', error);
+    logger.error('Failed to fetch configurations', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -47,149 +48,24 @@ router.get('/', requireInternal, async (req, res) => {
   }
 });
 
-// Get specific configuration value
-router.get('/:key', requireInternal, async (req, res) => {
+// Get specific configuration
+router.get('/:key', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { key } = req.params;
-    const value = await ConfigService.getConfig(key);
+    const config = await ConfigService.getConfig(req.params.key);
     
-    if (value === null) {
+    if (!config) {
       return res.status(404).json({
         success: false,
         error: 'Configuration not found'
       });
     }
-    
-    res.json({
-      success: true,
-      data: { key, value }
-    });
-  } catch (error: any) {
-    logger.error('Failed to get configuration', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
 
-// Update configuration value
-router.put('/:key', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { key } = req.params;
-    const { value, description, isEncrypted } = req.body;
-    
-    const { error: validationError } = configSchema.validate({ key, value, description, isEncrypted });
-    if (validationError) {
-      return res.status(400).json({
-        success: false,
-        error: validationError.details[0].message
-      });
-    }
-    
-    await ConfigService.setConfig(key, value, description, isEncrypted);
-    
-    logger.info('Configuration updated', {
-      key,
-      updatedBy: req.user!.userId
-    });
-    
-    res.json({
-      success: true,
-      message: 'Configuration updated successfully'
-    });
-  } catch (error: any) {
-    logger.error('Failed to update configuration', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Get holidays
-router.get('/holidays', requireInternal, async (req, res) => {
-  try {
-    const holidays = await ConfigService.getFederalHolidays();
-    res.json({
-      success: true,
-      data: holidays
-    });
-  } catch (error: any) {
-    logger.error('Failed to get holidays', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Add holiday
-router.post('/holidays', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { error: validationError } = holidaySchema.validate(req.body);
-    if (validationError) {
-      return res.status(400).json({
-        success: false,
-        error: validationError.details[0].message
-      });
-    }
-    
-    const holiday = await ConfigService.addFederalHoliday(req.body);
-    
-    logger.info('Holiday added', {
-      holiday: holiday.name,
-      date: holiday.date,
-      addedBy: req.user!.userId
-    });
-    
-    res.json({
-      success: true,
-      data: holiday
-    });
-  } catch (error: any) {
-    logger.error('Failed to add holiday', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Delete holiday
-router.delete('/holidays/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    await ConfigService.deleteFederalHoliday(id);
-    
-    logger.info('Holiday deleted', {
-      holidayId: id,
-      deletedBy: req.user!.userId
-    });
-    
-    res.json({
-      success: true,
-      message: 'Holiday deleted successfully'
-    });
-  } catch (error: any) {
-    logger.error('Failed to delete holiday', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Get SFTP configuration
-router.get('/sftp', requireInternal, async (req, res) => {
-  try {
-    const config = await ConfigService.getSFTPConfig();
     res.json({
       success: true,
       data: config
     });
   } catch (error: any) {
-    logger.error('Failed to get SFTP configuration', error);
+    logger.error('Failed to fetch configuration', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -197,48 +73,199 @@ router.get('/sftp', requireInternal, async (req, res) => {
   }
 });
 
-// Update SFTP configuration
-router.put('/sftp', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Set configuration value
+router.put('/:key', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { error: validationError } = sftpConfigSchema.validate(req.body);
-    if (validationError) {
+    const { error, value } = configSchema.validate({
+      key: req.params.key,
+      ...req.body
+    });
+
+    if (error) {
       return res.status(400).json({
         success: false,
-        error: validationError.details[0].message
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
       });
     }
-    
-    await ConfigService.setSFTPConfig(req.body, req.user!.userId);
-    
-    logger.info('SFTP configuration updated', {
-      host: req.body.host,
-      updatedBy: req.user!.userId
+
+    const config = await ConfigService.setConfig(
+      value.key,
+      value.value,
+      req.user!.userId,
+      value.description,
+      value.isEncrypted
+    );
+
+    logger.info('Configuration updated', {
+      key: value.key,
+      userId: req.user!.userId
     });
+
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error: any) {
+    logger.error('Failed to set configuration', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete configuration
+router.delete('/:key', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const success = await ConfigService.deleteConfig(req.params.key);
+    
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        error: 'Configuration not found'
+      });
+    }
+
+    logger.info('Configuration deleted', {
+      key: req.params.key,
+      userId: req.user!.userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Configuration deleted successfully'
+    });
+  } catch (error: any) {
+    logger.error('Failed to delete configuration', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Federal holidays management
+router.get('/holidays/list', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const holidays = await ConfigService.getFederalHolidays();
     
     res.json({
       success: true,
-      message: 'SFTP configuration updated successfully'
+      data: holidays
+    });
+  } catch (error: any) {
+    logger.error('Failed to fetch federal holidays', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+router.post('/holidays', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { error, value } = holidaySchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
+      });
+    }
+
+    const holiday = await ConfigService.addFederalHoliday(value);
+
+    logger.info('Federal holiday added', {
+      holidayName: value.name,
+      date: value.date,
+      userId: req.user!.userId
+    });
+
+    res.status(201).json({
+      success: true,
+      data: holiday
+    });
+  } catch (error: any) {
+    logger.error('Failed to add federal holiday', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+router.delete('/holidays/:id', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const success = await ConfigService.deleteFederalHoliday(req.params.id);
+    
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        error: 'Holiday not found'
+      });
+    }
+
+    logger.info('Federal holiday deleted', {
+      holidayId: req.params.id,
+      userId: req.user!.userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Holiday deleted successfully'
+    });
+  } catch (error: any) {
+    logger.error('Failed to delete federal holiday', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// SFTP configuration
+router.get('/sftp', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const sftpConfig = await ConfigService.getSFTPConfig();
+    
+    res.json({
+      success: true,
+      data: sftpConfig
+    });
+  } catch (error: any) {
+    logger.error('Failed to fetch SFTP configuration', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+router.put('/sftp', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { error, value } = sftpConfigSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
+      });
+    }
+
+    const config = await ConfigService.setSFTPConfig(value, req.user!.userId);
+
+    logger.info('SFTP configuration updated', {
+      host: value.host,
+      userId: req.user!.userId
+    });
+
+    res.json({
+      success: true,
+      data: config
     });
   } catch (error: any) {
     logger.error('Failed to update SFTP configuration', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Test SFTP connection
-router.post('/sftp/test', requireInternal, async (req, res) => {
-  try {
-    const result = await ConfigService.testSFTPConnection();
-    
-    res.json({
-      success: true,
-      data: result
-    });
-  } catch (error: any) {
-    logger.error('SFTP connection test failed', error);
     res.status(500).json({
       success: false,
       error: error.message

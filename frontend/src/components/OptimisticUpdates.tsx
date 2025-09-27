@@ -20,14 +20,9 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (newStatus: string): Promise<ACHTransaction> => {
-      await apiClient.updateTransactionStatus(transaction.id, newStatus);
-      // Fetch the updated transaction after status change
-      const response = await apiClient.getTransaction(transaction.id);
-      if (!response.data) {
-        throw new Error('Failed to fetch updated transaction');
-      }
-      return response.data;
+    mutationFn: async (newStatus: string) => {
+      const response = await apiClient.updateTransactionStatus(transaction.id, newStatus);
+      return response.data as ACHTransaction;
     },
     
     // Optimistic update - immediately update UI before server responds
@@ -86,9 +81,9 @@ export function OptimisticTransactionStatus({ transaction }: OptimisticTransacti
       // Update in lists
       queryClient.setQueriesData<ACHTransaction[]>(
         { queryKey: queryKeys.transactions },
-        (oldData: ACHTransaction[] | undefined): ACHTransaction[] | undefined => {
+        (oldData: ACHTransaction[] | undefined) => {
           if (oldData) {
-            return oldData.map((tx: ACHTransaction) => 
+            return oldData.map(tx => 
               tx.id === transaction.id ? updatedTransaction : tx
             );
           }

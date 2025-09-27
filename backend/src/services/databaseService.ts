@@ -184,26 +184,8 @@ export class DatabaseService {
 
     return {
       id: data.id,
-      transactionId: data.transaction_id || data.id,
-      routingNumber: data.dr_routing_number || data.routing_number,
-      accountNumberEncrypted: data.dr_account_number_encrypted || data.account_number_encrypted,
-      accountType: data.account_type || 'checking',
-      transactionType: data.transaction_type || 'debit',
-      amount: data.amount,
-      effectiveDate: new Date(data.effective_date),
-      description: data.description || '',
-      individualId: data.dr_id || data.individual_id,
-      individualName: data.dr_name || data.individual_name,
-      companyName: data.cr_name || data.company_name,
-      companyId: data.cr_id || data.company_id,
-      senderIp: data.sender_ip,
-      timestamp: new Date(data.created_at),
-      status: data.status,
-      processedAt: data.processed_at ? new Date(data.processed_at) : undefined,
-      nachaFileId: data.nacha_file_id,
-      createdBy: data.created_by,
-      updatedBy: data.updated_by,
-      // Additional fields for separate DR/CR structure
+      organizationId: data.organization_id,
+      traceNumber: data.trace_number,
       drRoutingNumber: data.dr_routing_number,
       drAccountNumberEncrypted: data.dr_account_number_encrypted,
       drId: data.dr_id,
@@ -212,9 +194,11 @@ export class DatabaseService {
       crAccountNumberEncrypted: data.cr_account_number_encrypted,
       crId: data.cr_id,
       crName: data.cr_name,
+      amount: data.amount,
+      effectiveDate: new Date(data.effective_date),
+      senderIp: data.sender_ip,
       senderDetails: data.sender_details,
-      organizationId: data.organization_id,
-      traceNumber: data.trace_number,
+      status: data.status,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at)
     };
@@ -236,26 +220,8 @@ export class DatabaseService {
 
     return {
       id: data.id,
-      transactionId: data.transaction_id || data.id,
-      routingNumber: data.dr_routing_number || data.routing_number,
-      accountNumberEncrypted: data.dr_account_number_encrypted || data.account_number_encrypted,
-      accountType: data.account_type || 'checking',
-      transactionType: data.transaction_type || 'debit',
-      amount: data.amount,
-      effectiveDate: new Date(data.effective_date),
-      description: data.description || '',
-      individualId: data.dr_id || data.individual_id,
-      individualName: data.dr_name || data.individual_name,
-      companyName: data.cr_name || data.company_name,
-      companyId: data.cr_id || data.company_id,
-      senderIp: data.sender_ip,
-      timestamp: new Date(data.created_at),
-      status: data.status,
-      processedAt: data.processed_at ? new Date(data.processed_at) : undefined,
-      nachaFileId: data.nacha_file_id,
-      createdBy: data.created_by,
-      updatedBy: data.updated_by,
-      // Additional fields for separate DR/CR structure
+      organizationId: data.organization_id,
+      traceNumber: data.trace_number,
       drRoutingNumber: data.dr_routing_number,
       drAccountNumberEncrypted: data.dr_account_number_encrypted,
       drId: data.dr_id,
@@ -264,9 +230,11 @@ export class DatabaseService {
       crAccountNumberEncrypted: data.cr_account_number_encrypted,
       crId: data.cr_id,
       crName: data.cr_name,
+      amount: data.amount,
+      effectiveDate: new Date(data.effective_date),
+      senderIp: data.sender_ip,
       senderDetails: data.sender_details,
-      organizationId: data.organization_id,
-      traceNumber: data.trace_number,
+      status: data.status,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at)
     };
@@ -325,26 +293,8 @@ export class DatabaseService {
 
     const transactions = data?.map(tx => ({
       id: tx.id,
-      transactionId: tx.transaction_id || tx.id,
-      routingNumber: tx.dr_routing_number || tx.routing_number,
-      accountNumberEncrypted: tx.dr_account_number_encrypted || tx.account_number_encrypted,
-      accountType: tx.account_type || 'checking',
-      transactionType: tx.transaction_type || 'debit',
-      amount: tx.amount,
-      effectiveDate: new Date(tx.effective_date),
-      description: tx.description || '',
-      individualId: tx.dr_id || tx.individual_id,
-      individualName: tx.dr_name || tx.individual_name,
-      companyName: tx.cr_name || tx.company_name,
-      companyId: tx.cr_id || tx.company_id,
-      senderIp: tx.sender_ip,
-      timestamp: new Date(tx.created_at),
-      status: tx.status,
-      processedAt: tx.processed_at ? new Date(tx.processed_at) : undefined,
-      nachaFileId: tx.nacha_file_id,
-      createdBy: tx.created_by,
-      updatedBy: tx.updated_by,
-      // Additional fields for separate DR/CR structure
+      organizationId: tx.organization_id,
+      traceNumber: tx.trace_number,
       drRoutingNumber: tx.dr_routing_number,
       drAccountNumberEncrypted: tx.dr_account_number_encrypted,
       drId: tx.dr_id,
@@ -353,9 +303,11 @@ export class DatabaseService {
       crAccountNumberEncrypted: tx.cr_account_number_encrypted,
       crId: tx.cr_id,
       crName: tx.cr_name,
+      amount: tx.amount,
+      effectiveDate: new Date(tx.effective_date),
+      senderIp: tx.sender_ip,
       senderDetails: tx.sender_details,
-      organizationId: tx.organization_id,
-      traceNumber: tx.trace_number,
+      status: tx.status,
       createdAt: new Date(tx.created_at),
       updatedAt: new Date(tx.updated_at)
     })) || [];
@@ -377,7 +329,7 @@ export class DatabaseService {
   async updateTransactionStatus(id: string, status: string): Promise<void> {
     const { error } = await this.supabase
       .from('ach_transactions')
-      .update({ status, updatedAt: new Date().toISOString() })
+      .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
@@ -516,7 +468,7 @@ export class DatabaseService {
         drEntry:transaction_entries!dr_entry_id(*),
         crEntry:transaction_entries!cr_entry_id(*)
       `, { count: 'exact' })
-      .order('createdAt', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -540,7 +492,7 @@ export class DatabaseService {
   async updateTransactionEntryStatus(id: string, status: string): Promise<void> {
     const { error } = await this.supabase
       .from('transaction_entries')
-      .update({ status, updatedAt: new Date().toISOString() })
+      .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
@@ -591,7 +543,7 @@ export class DatabaseService {
     const { data, error, count } = await this.supabase
       .from('nacha_files')
       .select('*', { count: 'exact' })
-      .order('createdAt', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {

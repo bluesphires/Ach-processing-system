@@ -43,21 +43,11 @@ export class NACHAService {
 
     return {
       id: this.generateId(),
-      organizationId: 'default-org', // TODO: Get from context
       filename,
       content: finalContent,
       effectiveDate,
       transactionCount: transactions.length,
       totalAmount,
-      totalRecords: transactions.length,
-      totalDebits: fileType === 'DR' ? transactions.length : 0,
-      totalCredits: fileType === 'CR' ? transactions.length : 0,
-      status: 'generated',
-      generatedAt: new Date(),
-      transmittedAt: undefined,
-      filePath: `/nacha/${filename}`,
-      transactionIds,
-      createdBy: 'system',
       createdAt: new Date(),
       transmitted: false,
       encrypted: encrypt && !!this.encryptionService
@@ -82,21 +72,11 @@ export class NACHAService {
 
     return {
       id: this.generateId(),
-      organizationId: 'default-org', // TODO: Get from context
       filename,
       content,
       effectiveDate,
       transactionCount: filteredEntries.length,
       totalAmount,
-      totalRecords: filteredEntries.length,
-      totalDebits: fileType === 'DR' ? filteredEntries.length : 0,
-      totalCredits: fileType === 'CR' ? filteredEntries.length : 0,
-      status: 'generated',
-      generatedAt: new Date(),
-      transmittedAt: undefined,
-      filePath: `/nacha/${filename}`,
-      transactionIds: filteredEntries.map(entry => entry.id),
-      createdBy: 'system',
       createdAt: new Date(),
       transmitted: false
     };
@@ -247,10 +227,10 @@ export class NACHAService {
    */
   private generateEntryDetail(transaction: ACHTransaction, fileType: 'DR' | 'CR'): string {
     const transactionCode = fileType === 'DR' ? '27' : '22'; // 27 = Checking Debit, 22 = Checking Credit
-    const routingNumber = fileType === 'DR' ? (transaction.drRoutingNumber || transaction.routingNumber) : (transaction.crRoutingNumber || transaction.routingNumber);
-    const accountNumber = fileType === 'DR' ? (transaction.drAccountNumber || transaction.accountNumber) : (transaction.crAccountNumber || transaction.accountNumber);
-    const individualName = fileType === 'DR' ? (transaction.drName || transaction.individualName) : (transaction.crName || transaction.individualName);
-    const individualId = fileType === 'DR' ? (transaction.drId || transaction.individualId) : (transaction.crId || transaction.individualId);
+    const routingNumber = fileType === 'DR' ? transaction.drRoutingNumber : transaction.crRoutingNumber;
+    const accountNumber = fileType === 'DR' ? transaction.drAccountNumber : transaction.crAccountNumber;
+    const individualName = fileType === 'DR' ? transaction.drName : transaction.crName;
+    const individualId = fileType === 'DR' ? transaction.drId : transaction.crId;
     
     const amount = Math.round(transaction.amount * 100); // Convert to cents
     
@@ -302,7 +282,7 @@ export class NACHAService {
     
     // Calculate entry hash (sum of first 8 digits of routing numbers)
     const entryHash = transactions.reduce((sum, tx) => {
-      const routingNumber = fileType === 'DR' ? (tx.drRoutingNumber || tx.routingNumber) : (tx.crRoutingNumber || tx.routingNumber);
+      const routingNumber = fileType === 'DR' ? tx.drRoutingNumber : tx.crRoutingNumber;
       return sum + parseInt(routingNumber.substring(0, 8));
     }, 0);
     
@@ -362,8 +342,8 @@ export class NACHAService {
     
     // Calculate entry hash
     const entryHash = transactions.reduce((sum, tx) => {
-      const drHash = parseInt((tx.drRoutingNumber || tx.routingNumber).substring(0, 8));
-      const crHash = parseInt((tx.crRoutingNumber || tx.routingNumber).substring(0, 8));
+      const drHash = parseInt(tx.drRoutingNumber.substring(0, 8));
+      const crHash = parseInt(tx.crRoutingNumber.substring(0, 8));
       return sum + drHash + crHash;
     }, 0);
     

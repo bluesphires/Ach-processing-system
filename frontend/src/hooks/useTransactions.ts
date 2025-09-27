@@ -1,15 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys, staleTimeConfig } from '@/lib/query-client';
-import { ACHTransaction, CreateTransactionRequest, TransactionStatus } from '@/types';
+import { ACHTransaction, CreateTransactionRequest, TransactionFilters } from '@/types';
 import { toast } from 'react-hot-toast';
 
 // Transaction Queries
-export function useTransactions(params?: {
+export function useTransactions(params?: TransactionFilters & {
   page?: number;
   limit?: number;
-  status?: TransactionStatus;
-  effectiveDate?: string;
 }) {
   return useQuery({
     queryKey: queryKeys.transactionsList(params),
@@ -52,7 +50,7 @@ export function useCreateTransaction() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (transactionData: CreateTransactionRequest): Promise<ACHTransaction> => {
+    mutationFn: async (transactionData: CreateTransactionRequest) => {
       const response = await apiClient.createTransaction(transactionData);
       if (!response.data) {
         throw new Error('Failed to create transaction');
@@ -89,9 +87,17 @@ export function useUpdateTransactionStatus() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: TransactionStatus }) => {
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const response = await apiClient.updateTransactionStatus(id, status);
-      return response.data;
+      if (!response.success) {
+        throw new Error('Failed to update transaction status');
+      }
+      // Refetch the updated transaction
+      const transactionResponse = await apiClient.getTransaction(id);
+      if (!transactionResponse.data) {
+        throw new Error('Failed to fetch updated transaction');
+      }
+      return transactionResponse.data;
     },
     onSuccess: (updatedTransaction: ACHTransaction, variables) => {
       // Update specific transaction in cache
@@ -130,11 +136,22 @@ export function useBulkUpdateTransactions() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ ids, status }: { ids: string[]; status: TransactionStatus }) => {
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
       // Execute bulk update (assuming API supports it, otherwise loop)
-      const promises = ids.map(id => apiClient.updateTransactionStatus(id, status));
+      const promises = ids.map(async (id) => {
+        const response = await apiClient.updateTransactionStatus(id, status);
+        if (!response.success) {
+          throw new Error(`Failed to update transaction ${id}`);
+        }
+        // Refetch the updated transaction
+        const transactionResponse = await apiClient.getTransaction(id);
+        if (!transactionResponse.data) {
+          throw new Error(`Failed to fetch updated transaction ${id}`);
+        }
+        return transactionResponse.data;
+      });
       const results = await Promise.all(promises);
-      return results.map(r => r.data);
+      return results;
     },
     onSuccess: (updatedTransactions: ACHTransaction[], variables) => {
       // Invalidate all transaction-related queries for simplicity
@@ -154,7 +171,7 @@ export function useBulkUpdateTransactions() {
 export function usePrefetchTransactions() {
   const queryClient = useQueryClient();
   
-  return (params: { page: number; limit?: number; status?: TransactionStatus; effectiveDate?: string }) => {
+  return (params: TransactionFilters & { page: number; limit?: number }) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.transactionsList(params),
       queryFn: async () => {
