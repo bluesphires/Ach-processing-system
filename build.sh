@@ -9,9 +9,17 @@ ls -la
 echo "Checking if frontend directory exists..."
 if [ -d "frontend" ]; then
     echo "Frontend directory found!"
+    
+    # Copy package.json to root for Vercel to detect Next.js
+    echo "Copying package.json to root for Vercel detection..."
+    cp frontend/package.json ./package.json
+    
+    # Install dependencies in frontend
+    echo "Installing dependencies in frontend..."
     cd frontend
-    echo "Installing dependencies..."
     npm install
+    
+    # Build the application
     echo "Building application..."
     npm run build
     echo "Build completed successfully!"
